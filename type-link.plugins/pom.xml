@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>me.legrange.typelink</groupId>
+        <artifactId>type-link-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>type-link.plugins</artifactId>
+    <packaging>maven-plugin</packaging>
+    <name>type-link :: Maven plugin</name>
+    <description>Build-time validation that every query in a project can actually be generated as SQL.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>me.legrange.typelink</groupId>
+            <artifactId>type-link.core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Maven Plugin API -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>3.9.16</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Maven Plugin Annotations -->
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>3.15.1</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Maven Project -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-project</artifactId>
+            <version>2.2.1</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>25</source>
+                    <target>25</target>
+                </configuration>
+            </plugin>
+            <!-- Maven Plugin Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+                <version>3.15.2</version>
+                <configuration>
+                    <goalPrefix>typelink</goalPrefix>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>mojo-descriptor</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>descriptor</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+

@@ -1,0 +1,52 @@
+# Builds and tests type-link twice: once normally, and once with debug information stripped.
+#
+# The second build is not redundant. Lambda decoding reads class files, so it is sensitive to what
+# the compiler chose to put in them - and a decoder that quietly depends on the LocalVariableTable
+# attribute passes every normal build while failing in any release build configured to strip debug
+# information. Running both keeps that honest.
+#
+# Tests run against H2 by default. Set TEST_DATABASES to "all" to include the MariaDB and
+# PostgreSQL testcontainers, or to a single name ("MariaDB", "PostgreSQL", "H2").
+
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Report both builds. Debug information is the only difference between them, so knowing
+      # whether one or both failed is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          - name: test
+            profile: ''
+          - name: test (no debug information)
+            profile: '-P no-debug-info'
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          # Matches maven.compiler.source/target in the root pom. Those are source/target rather
+          # than release, so compilation links against whatever JDK is running - building on the
+          # declared version is what keeps a newer API from slipping in unnoticed.
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+
+      # clean is required, not tidiness: Maven skips recompilation when sources have not changed,
+      # so without it the second build silently reuses the first one's debug-bearing classes.
+      - name: Build and test
+        run: mvn -B clean verify ${{ matrix.profile }}

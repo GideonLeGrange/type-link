@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>me.legrange.typelink</groupId>
+    <artifactId>type-link-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>type-link.core</module>
+        <module>type-link.plugins</module>
+        <module>test</module>
+        <module>type-link.json</module>
+    </modules>
+    <name>type-link</name>
+    <description>Type-safe SQL queries for Java, written as ordinary lambdas and compiled to SQL
+        by reading the lambda's bytecode.</description>
+    <url>https://github.com/GideonLeGrange/type-link</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Gideon Le Grange</name>
+            <url>https://github.com/GideonLeGrange</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/GideonLeGrange/type-link</url>
+        <connection>scm:git:https://github.com/GideonLeGrange/type-link.git</connection>
+        <developerConnection>scm:git:git@github.com:GideonLeGrange/type-link.git</developerConnection>
+    </scm>
+
+    <properties>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.11.2</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <doclint>none</doclint>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <!--
+              Compiles without debug information, so lambda decoding runs against class files that
+              carry no LocalVariableTable attribute.
+
+              The decoder takes argument types from the method descriptor, which is always present.
+              It used to take them from LocalVariable elements instead, which exist only when that
+              attribute does - so a release build configured to strip debug information turned every
+              query predicate into a NullPointerException deep in the parser. Nothing about that
+              failure pointed at a build setting, which is why it is worth a build of its own rather
+              than a comment.
+
+              Run it from clean. Maven skips recompilation when sources have not changed and will
+              happily reuse debug-bearing classes, which leaves this passing while testing nothing:
+
+                  mvn -P no-debug-info clean verify
+
+              Test_5010_DecodingWithoutDebugInfo covers the same ground in a normal build by
+              stripping the attribute in-process. It skips under this profile, where there is
+              nothing left to strip because the whole suite is already running without it.
+            -->
+            <id>no-debug-info</id>
+            <properties>
+                <maven.compiler.debug>false</maven.compiler.debug>
+            </properties>
+        </profile>
+
+        <profile>
+            <!--
+              Publishing to Maven Central.
+
+                  mvn -P release deploy
+
+              Everything it needs beyond this file lives outside it, on purpose:
+
+                1. A GPG key whose public half is on a keyserver. The plugin prompts for the
+                   passphrase, or takes it from gpg-agent - never from here.
+                2. A <server> block with id "central" in your own ~/.m2/settings.xml, holding a
+                   token from the Central Portal. Not a Sonatype OSSRH username and password;
+                   the Portal issues its own token.
+
+              autoPublish is deliberately false. Deploying stages the release on the Portal for
+              review, and nothing reaches Central until it is published there by hand.
+            -->
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
