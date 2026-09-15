@@ -15,11 +15,34 @@
 
     <properties>
         <!-- An internal suite under a name nobody should depend on. It builds and runs; it
-             does not go to Central. -->
+             does not go to Central.
+
+             maven.deploy.skip has no effect on that: central-publishing-maven-plugin replaces
+             the deploy-phase binding entirely (extensions=true) and does not read it - it is a
+             maven-deploy-plugin convention, and this project's release profile never engages
+             maven-deploy-plugin. Left here anyway, since something else might still read it, but
+             skipPublishing below is what actually keeps this module out of the bundle. Confirmed
+             the hard way: 1.0.0's first release deployment included
+             pkg:maven/me.legrange.typelink/test@1.0.0 with only maven.deploy.skip set. -->
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.github.mavenplugins</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <configuration>
+                            <skipPublishing>true</skipPublishing>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>validate-queries</id>
             <build>
