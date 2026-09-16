@@ -54,7 +54,11 @@ public class ValidateQueries extends AbstractMojo {
     private final Set<Error> errors = new HashSet<>();
 
     public void execute() throws MojoExecutionException {
-        getLog().info("Loading compiled classes from project...");
+        var packaging = project.getPackaging();
+        if ("pom".equals(packaging) || "maven-archetype".equals(packaging)) {
+            // Skip processing
+            return;
+        }        getLog().info("Loading compiled classes from project...");
         try {
             loader = createProjectClassLoader();
             Thread.currentThread().setContextClassLoader(loader);
