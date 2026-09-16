@@ -66,6 +66,12 @@ import static java.lang.String.format;
     }
 
     static Object constForDesc(ConstantDesc constDesc) throws DecoderException {
+        // A class-literal constant must resolve through classForDesc: resolveConstantDesc below
+        // binds to this method's own lookup, i.e. type-link.core's classloader, which cannot see
+        // a consumer project's classes.
+        if (constDesc instanceof ClassDesc classDesc) {
+            return classForDesc(classDesc);
+        }
         try {
             return constDesc.resolveConstantDesc(MethodHandles.lookup());
         } catch (ReflectiveOperationException e) {

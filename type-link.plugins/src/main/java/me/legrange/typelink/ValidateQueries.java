@@ -9,6 +9,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
 import java.io.ByteArrayOutputStream;
@@ -40,7 +41,8 @@ import static me.legrange.typelink.lambda.parser.BytecodeParser.parseBytecode;
  */
 // FIXME this plugin contains copied code from ClassUtil. ClassUtil probably needs to be
 // reworked to accept a class loader, or at least have some methods exposed.
-@Mojo(name = "validate-queries", defaultPhase = LifecyclePhase.VALIDATE)
+@Mojo(name = "validate-queries", defaultPhase = LifecyclePhase.VALIDATE,
+        requiresDependencyResolution = ResolutionScope.COMPILE)
 public class ValidateQueries extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
@@ -66,7 +68,7 @@ public class ValidateQueries extends AbstractMojo {
 
             getLog().info(format("Processing  %d classes", loadedClasses.size()));
             for (var clazz : loadedClasses) {
-                fileName = clazz.getCanonicalName().replace(".", "/") + ".java";
+                fileName = topLevelClassOf(clazz).getCanonicalName().replace(".", "/") + ".java";
                 validate(clazz);
             }
             if (!errors.isEmpty()) {
@@ -96,10 +98,23 @@ public class ValidateQueries extends AbstractMojo {
     }
 
     /**
-     * Creates a URLClassLoader that includes the project's output directory.
+     * Creates a URLClassLoader that includes the project's output directory and its compile
+     * classpath, so that supertypes and interfaces declared in dependencies (e.g. marker
+     * interfaces) can be resolved while loading the project's own classes.
      */
     private ClassLoader createProjectClassLoader() throws Exception {
-        return new URLClassLoader(new URL[]{makeUrl(outputDirectory)}, Thread.currentThread().getContextClassLoader());
+        var urls = new ArrayList<URL>();
+        urls.add(makeUrl(outputDirectory));
+        for (var element : project.getCompileClasspathElements()) {
+            urls.add(new File((String) element).toURI().toURL());
+        }
+        return new URLClassLoader(urls.toArray(new URL[0]), Thread.currentThread().getContextClassLoader());
+    }
+
+    /** A nested class lives in its enclosing class's .java file, not one of its own. */
+    private Class<?> topLevelClassOf(Class<?> type) {
+        var enclosing = type.getEnclosingClass();
+        return enclosing == null ? type : topLevelClassOf(enclosing);
     }
 
     private URL makeUrl(String dir) throws MalformedURLException {
@@ -111,7 +126,9 @@ public class ValidateQueries extends AbstractMojo {
     }
 
     private void validate(Class<?> type) {
-        var model = getClassModel(type.getCanonicalName());
+        // Binary name, not canonical name: a nested class's .class file is Outer$Inner.class,
+        // and getCanonicalName() renders that boundary as a dot instead of a dollar sign.
+        var model = getClassModel(type.getName());
         model.elementStream()
                 .filter(e -> e instanceof MethodModel)
                 .map(MethodModel.class::cast)
