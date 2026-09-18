@@ -108,7 +108,7 @@ The Maven plugin finds them at build time instead:
 <plugin>
     <groupId>me.legrange.typelink</groupId>
     <artifactId>type-link.plugins</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <executions>
         <execution><goals><goal>validate-queries</goal></goals></execution>
     </executions>
@@ -138,12 +138,6 @@ source, `mvn -P no-debug-info clean verify` is worth running from clean.
 | `type-link.json` | reading and writing queries as JSON |
 | `type-link.plugins` | the Maven plugin above |
 | `test` | the test suite — not published |
-
-## History
-
-type-link was called **linqly** for its first seventeen months, from November 2024, and was
-renamed in April 2026. This repository begins at 1.0.0; the development history is kept
-privately.
 
 ## Licence
 
