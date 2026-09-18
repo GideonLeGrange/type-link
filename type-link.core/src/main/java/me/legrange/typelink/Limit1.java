@@ -2,7 +2,7 @@ package me.legrange.typelink;
 
 import java.util.List;
 
-public sealed interface Limit1<T1> extends Clause permits And1, Distinct1, GroupBy1, LimitLink1, Or1, OrderBy1, Where1 {
+public sealed interface Limit1<T1> extends Clause permits And1, Distinct1, From1, GroupBy1, LimitLink1, Or1, OrderBy1, Where1 {
 
     List<T1> list() throws QueryException;
 

@@ -2,7 +2,7 @@ package me.legrange.typelink;
 
 import java.util.List;
 
-public sealed interface Limit2<T1, T2> extends Clause permits And2, Distinct2, GroupBy2, LimitLink2, Or2, OrderBy2, Where2 {
+public sealed interface Limit2<T1, T2> extends Clause permits And2, Distinct2, From2, GroupBy2, Join2, LimitLink2, Or2, OrderBy2, Where2 {
 
     List<Row2<T1, T2>> list() throws QueryException;
 

@@ -1,6 +1,6 @@
 package me.legrange.typelink;
 
-public sealed interface Where3<T1, T2, T3> extends Limit3<T1, T2, T3> permits From3, Join3, WhereLink3 {
+public sealed interface Where3<T1, T2, T3> extends Limit3<T1, T2, T3> permits WhereLink3 {
 
     And3<T1, T2, T3> and(QueryPredicate3<T1, T2, T3> clause);
 
