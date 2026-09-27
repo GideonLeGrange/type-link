@@ -66,7 +66,7 @@ class Test_5060_NestedLambdaCaptures {
         assertEquals(List.of(42, 0L), db.params());
     }
 
-    private static QueryPredicate1<Sold> ownedBy(CapturingDatabase db, int clientNumber) {
+    private static QueryPredicate1<Sold> ownedBy(CapturingDatabase db, @SuppressWarnings("SameParameterValue") int clientNumber) {
         return s -> db.from(Sale.class)
                 .where(x -> x.soldKey() == s.objKey() && x.clientNumber() == clientNumber)
                 .count() > 0;
@@ -98,7 +98,7 @@ class Test_5060_NestedLambdaCaptures {
         var db = new CapturingDatabase();
 
         db.from(Sold.class)
-                .where(s -> db.from(Sale.class)
+                .where(_ -> db.from(Sale.class)
                         .where(x -> x.clientNumber() == clientNumber)
                         .count() > 0)
                 .list();
@@ -129,6 +129,7 @@ class Test_5060_NestedLambdaCaptures {
 
     // --- the same defect reached through a field ------------------------------
 
+    @SuppressWarnings("FieldMayBeFinal")
     private int mutableField = 42;
     private final int assignedField;
 
