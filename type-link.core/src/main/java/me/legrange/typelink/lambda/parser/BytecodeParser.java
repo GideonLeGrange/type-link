@@ -220,6 +220,10 @@ public final class BytecodeParser {
                 case TypeCheckInstruction tc:
                     typeCheck(tc);
                     break;
+                case LookupSwitchInstruction _:
+                    throw unsupported("switch is not supported");
+                case NewReferenceArrayInstruction _:
+                    throw unsupported("varargs are not supported");
                 default:
                     throw bug("Unsupported value element %s", code);
             }
@@ -265,9 +269,7 @@ public final class BytecodeParser {
     private void typeCheck(TypeCheckInstruction tc) {
         switch (tc.opcode()) {
             case CHECKCAST -> {}
-            case INSTANCEOF -> {
-                throw new BytecodeParseException(lineNumber, "Cannot do instanceof in lambda");
-            }
+            case INSTANCEOF -> throw new BytecodeParseException(lineNumber, "Cannot do instanceof in lambda");
             default -> throw unsupported(tc.opcode());
         }
     }
@@ -375,11 +377,24 @@ public final class BytecodeParser {
             case IMUL -> new Multiply(Integer.class, pop(), right);
             case IDIV -> new Divide(Integer.class, pop(), right);
             case INEG -> new Negate(Integer.class, right);
+            case ISHL -> throw unsupported("<<");
+            case IREM -> throw unsupported("%");
+            case ISHR -> throw unsupported(">>");
+            case IUSHR -> throw unsupported(">>>");
+            case IAND -> throw unsupported("&");
+            case IOR -> throw unsupported("|");
+            case IXOR -> throw unsupported("^");
             case LADD -> new Add(Long.class, pop(), right);
             case LSUB -> new Subtract(Long.class, pop(), right);
             case LMUL -> new Multiply(Long.class, pop(), right);
             case LDIV -> new Divide(Long.class, pop(), right);
             case LNEG -> new Negate(Long.class, right);
+            case LSHL -> throw unsupported("<<");
+            case LSHR -> throw unsupported(">>");
+            case LUSHR -> throw unsupported(">>>");
+            case LAND -> throw unsupported("&");
+            case LOR -> throw unsupported("|");
+            case LXOR -> throw unsupported("^");
             default -> throw unsupported(oi.opcode());
         });
     }
@@ -422,7 +437,7 @@ public final class BytecodeParser {
             case Branch jump -> jump;
             case Return(Constant<?>(Integer i)) when i == 1 -> new True();
             case Return(Constant<?>(Integer i)) when i == 0 -> new False();
-            case Return(Value value) -> throw bug("Unexpected return value for jump %s", value);
+            case Return(_) -> throw unsupported("ternary expressions are not supported");
         };
     }
 
@@ -843,9 +858,14 @@ public final class BytecodeParser {
         stack.push(value);
     }
 
-    private DecoderException unsupported(Opcode opcode) {
-        return bug("Unsupported opcode %s", opcode);
+    private DecoderException unsupported(String message) {
+        return new BytecodeParseException(lineNumber, format("%s is not supported", message));
     }
+
+    private DecoderException unsupported(Opcode opcode) {
+        return bug(format("Unsupported opcode %s", opcode));
+    }
+
 
     private DecoderException bug(String fmt, Object... args) {
         return new BytecodeParseException(lineNumber, format(fmt, args) + ". BUG!");
