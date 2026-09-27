@@ -217,7 +217,8 @@ public final class BytecodeParser {
                 case StackInstruction si:
                     stack(si);
                     break;
-                case TypeCheckInstruction _:
+                case TypeCheckInstruction tc:
+                    typeCheck(tc);
                     break;
                 default:
                     throw bug("Unsupported value element %s", code);
@@ -261,6 +262,16 @@ public final class BytecodeParser {
         }
     }
 
+    private void typeCheck(TypeCheckInstruction tc) {
+        switch (tc.opcode()) {
+            case CHECKCAST -> {}
+            case INSTANCEOF -> {
+                throw new BytecodeParseException(lineNumber, "Cannot do instanceof in lambda");
+            }
+            default -> throw unsupported(tc.opcode());
+        }
+    }
+
     private void newObject(NewObjectInstruction noi) {
         if (noi.opcode() == Opcode.NEW) {
             try {
@@ -275,7 +286,7 @@ public final class BytecodeParser {
 
     private void store(StoreInstruction si) throws DecoderException {
         switch (si.opcode()) {
-            case ASTORE_1, ISTORE_2 -> heap.put(variables.get(si.slot()), pop());
+            case ASTORE_1, ISTORE_1, ISTORE_2 -> heap.put(variables.get(si.slot()), pop());
             default -> throw unsupported(si.opcode());
         }
     }
@@ -303,6 +314,7 @@ public final class BytecodeParser {
             case Evaluation eval -> branch(flip(eval), new True(), new False());
             case MethodCall mc -> branch(new Eq(mc, new Constant<>(false)), new True(), new False());
             case InstanceFieldReference field -> returnRef(field);
+            case Reference ref -> returnRef(ref);
             default ->
                     throw bug("Expected constant or expression on stack but found %s", val.getClass().getSimpleName());
         };

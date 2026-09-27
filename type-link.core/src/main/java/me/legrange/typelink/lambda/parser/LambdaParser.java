@@ -6,6 +6,8 @@ import me.legrange.typelink.lambda.structure.Lambda;
 import me.legrange.typelink.lambda.structure.Return;
 
 import java.io.Serializable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static me.legrange.typelink.lambda.parser.BranchParser.generateExpression;
 import static me.legrange.typelink.lambda.parser.ClassUtil.findCodeModel;
