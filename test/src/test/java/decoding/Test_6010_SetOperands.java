@@ -8,9 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Which side of a set test is the column.
@@ -71,7 +69,7 @@ class Test_6010_SetOperands {
         return row -> db.from(Sale.class)
                 .where(s -> s.clientId() == clientId)
                 .list(Sale::saleKey)
-                .contains(((HasSale) row).saleKey());
+                .contains(row.saleKey());
     }
 
     /** A column on the right instead: the sides are tried both ways round. */
@@ -94,10 +92,9 @@ class Test_6010_SetOperands {
 
         var thrown = assertThrows(QueryParseException.class,
                 () -> db.from(Invoice.class)
-                        .where((QueryPredicate1<Invoice>) i -> keys.contains(wanted))
+                        .where((QueryPredicate1<Invoice>) _ -> keys.contains(wanted))
                         .list());
 
-        assertEquals(true, thrown.getMessage().contains("neither side"),
-                "expected a message naming the problem, got: " + thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("neither side"), "expected a message naming the problem, got: " + thrown.getMessage());
     }
 }
