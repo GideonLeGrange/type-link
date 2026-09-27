@@ -49,7 +49,7 @@
                 <plugins>
                     <plugin>
                         <groupId>me.legrange.typelink</groupId>
-                        <artifactId>plugins</artifactId>
+                        <artifactId>type-link.plugins</artifactId>
                         <version>${project.version}</version>
                         <executions>
                             <execution>
