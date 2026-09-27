@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static java.lang.String.format;
@@ -132,6 +133,13 @@ public class ValidateQueries extends AbstractMojo {
         model.elementStream()
                 .filter(e -> e instanceof MethodModel)
                 .map(MethodModel.class::cast)
+                // Every serializable lambda in a class is re-invoked from a switch in this one
+                // synthetic method, so as to be able to invoke it again on deserialization. Its
+                // invokedynamic call sites are the same ones already reached through the code that
+                // actually creates each lambda - walking it too would parse every lambda body a
+                // second time for nothing, tagged with this method's own line (the class
+                // declaration), not the lambda's.
+                .filter(m -> !m.methodName().stringValue().equals("$deserializeLambda$"))
                 .flatMap(CompoundElement::elementStream)
                 .filter(e -> e instanceof CodeModel)
                 .map(CodeModel.class::cast)
@@ -147,7 +155,15 @@ public class ValidateQueries extends AbstractMojo {
                 try {
                     invokeDynamic(id);
                 } catch (BytecodeParseException e) {
-                    errors.add(new Error(fileName, e.line(), e.getMessage()));
+                    errors.add(new Error(fileName, e.line(), e.getMessage(), e));
+                } catch (Exception e) {
+                    // Anything else is a bug we did not anticipate rather than a construct we
+                    // deliberately reject, so it gets its own wording - and since it did not come
+                    // from BytecodeParser, there is no line within the lambda to blame; the call
+                    // site's own line is the best available.
+                    errors.add(new Error(fileName, lineNumber,
+                            format("Uncaught %s while parsing lambda (%s). BUG!",
+                                    e.getClass().getSimpleName(), e.getMessage()), e));
                 }
             }
             default -> {
@@ -280,7 +296,27 @@ public class ValidateQueries extends AbstractMojo {
         return classes;
     }
 
-    private record Error(String fileName, int lineNumber, String error) {
+    /**
+     * @param e the exception the failure was reported as, kept for a future improvement that
+     *          wants its stack trace or cause chain - not currently shown to the user.
+     */
+    private record Error(String fileName, int lineNumber, String error, Exception e) {
+
+        // Two reports of the same problem at the same place are one error, even if each was
+        // thrown as its own exception instance - equals()/hashCode() are overridden so e (which
+        // Exception does not give value semantics) does not defeat the errors set's deduplication.
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Error other
+                    && lineNumber == other.lineNumber
+                    && fileName.equals(other.fileName)
+                    && error.equals(other.error);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(fileName, lineNumber, error);
+        }
     }
 
 
