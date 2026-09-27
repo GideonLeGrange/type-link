@@ -240,6 +240,7 @@ final class ColumnResolver {
     static SqlColumn operator(Context context, Operator operator) {
         return switch (operator) {
             case BinaryOperator binaryOperator -> binaryOperator(context, binaryOperator);
+            case UnaryOperator unaryOperator -> unaryOperator(context, unaryOperator);
             case AggregationOperator aggregationOperator -> aggregationOperator(context, aggregationOperator);
             case FunctionOperator functionOperator -> functionOperator(context, functionOperator);
         };
@@ -252,6 +253,33 @@ final class ColumnResolver {
             case Multiply(_, Value left, Value right) -> new SqlMultiply(column(context, left), column(context, right));
             case Divide(_, Value left, Value right) -> new SqlDivide(column(context, left), column(context, right));
         };
+    }
+
+    private static SqlOperation unaryOperator(Context context, UnaryOperator operator) {
+        return switch (operator) {
+            case Negate(Class<?> type, Value right) -> new SqlMultiply(new SqlConstant(minusOne(type)), column(context, right));
+        };
+    }
+
+    /**
+     * {@code -1} in whatever numeric type the negated value itself is - unlike the operands of
+     * {@link #binaryOperator}, this constant has no value of its own to take a type from; it is
+     * synthesised here, so it is on us to give it the same type
+     * {@link me.legrange.typelink.lambda.parser.BytecodeParser} already worked out from the
+     * opcode, rather than leaving every negation to lean on the database coercing a plain
+     * {@code int} against whatever column it is multiplied with.
+     */
+    private static Object minusOne(Class<?> type) {
+        if (type == Long.class) {
+            return -1L;
+        }
+        if (type == Float.class) {
+            return -1.0f;
+        }
+        if (type == Double.class) {
+            return -1.0;
+        }
+        return -1;
     }
 
     private static SqlFunction aggregationOperator(Context context, AggregationOperator op) {

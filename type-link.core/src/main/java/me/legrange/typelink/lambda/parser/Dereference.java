@@ -62,6 +62,7 @@ final class Dereference {
         return switch (operator) {
             case AggregationOperator ao -> dereference(ao, function);
             case BinaryOperator bo -> dereference(bo, function);
+            case UnaryOperator uo -> dereference(uo, function);
             case FunctionOperator fo -> dereference(fo, function);
         };
     }
@@ -92,6 +93,12 @@ final class Dereference {
                     new Multiply(type, dereference(left, function), dereference(right, function));
             case Subtract(var type, var left, var right) ->
                     new Subtract(type, dereference(left, function), dereference(right, function));
+        };
+    }
+
+    private static UnaryOperator dereference(UnaryOperator uo, Function<Reference, Value> function) {
+        return switch (uo   ) {
+            case Negate(var type, var right) -> new Negate(type, dereference(right, function));
         };
     }
 

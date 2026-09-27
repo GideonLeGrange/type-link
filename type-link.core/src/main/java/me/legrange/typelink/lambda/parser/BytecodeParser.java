@@ -347,24 +347,27 @@ public final class BytecodeParser {
             }
         }
         var right = pop();
-        var left = pop();
         push(switch (oi.opcode()) {
-            case FADD -> new Add(Float.class, left, right);
-            case FSUB -> new Subtract(Float.class, left, right);
-            case FMUL -> new Multiply(Float.class, left, right);
-            case FDIV -> new Divide(Float.class, left, right);
-            case DADD -> new Add(Double.class, left, right);
-            case DMUL -> new Multiply(Double.class, left, right);
-            case DSUB -> new Subtract(Double.class, left, right);
-            case DDIV -> new Divide(Double.class, left, right);
-            case IADD -> new Add(Integer.class, left, right);
-            case ISUB -> new Subtract(Integer.class, left, right);
-            case IMUL -> new Multiply(Integer.class, left, right);
-            case IDIV -> new Divide(Integer.class, left, right);
-            case LADD -> new Add(Long.class, left, right);
-            case LSUB -> new Subtract(Long.class, left, right);
-            case LMUL -> new Multiply(Long.class, left, right);
-            case LDIV -> new Divide(Long.class, left, right);
+            case FADD -> new Add(Float.class, pop(), right);
+            case FSUB -> new Subtract(Float.class, pop(), right);
+            case FMUL -> new Multiply(Float.class, pop(), right);
+            case FDIV -> new Divide(Float.class, pop(), right);
+            case FNEG -> new Negate(Float.class, right);
+            case DADD -> new Add(Double.class, pop(), right);
+            case DMUL -> new Multiply(Double.class, pop(), right);
+            case DSUB -> new Subtract(Double.class, pop(), right);
+            case DDIV -> new Divide(Double.class, pop(), right);
+            case DNEG -> new Negate(Double.class, right);
+            case IADD -> new Add(Integer.class, pop(), right);
+            case ISUB -> new Subtract(Integer.class, pop(), right);
+            case IMUL -> new Multiply(Integer.class, pop(), right);
+            case IDIV -> new Divide(Integer.class, pop(), right);
+            case INEG -> new Negate(Integer.class, right);
+            case LADD -> new Add(Long.class, pop(), right);
+            case LSUB -> new Subtract(Long.class, pop(), right);
+            case LMUL -> new Multiply(Long.class, pop(), right);
+            case LDIV -> new Divide(Long.class, pop(), right);
+            case LNEG -> new Negate(Long.class, right);
             default -> throw unsupported(oi.opcode());
         });
     }
