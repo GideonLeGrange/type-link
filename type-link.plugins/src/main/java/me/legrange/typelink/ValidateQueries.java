@@ -35,6 +35,8 @@ import java.util.Set;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.lambda.parser.BytecodeParser.parseBytecode;
+import static me.legrange.typelink.lambda.parser.BytecodeParser.resolve;
+import static me.legrange.typelink.sql.parser.UnrepresentableValues.reasonNotSelectable;
 
 /**
  * Maven Mojo for validating typelink queries.
@@ -52,16 +54,16 @@ public class ValidateQueries extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
     private String outputDirectory;
     private ClassLoader loader;
-    private String fileName;
     private int lineNumber;
-    private final Set<Error> errors = new HashSet<>();
+    private final Set<Result> results = new HashSet<>();
 
     public void execute() throws MojoExecutionException {
         var packaging = project.getPackaging();
         if ("pom".equals(packaging) || "maven-archetype".equals(packaging)) {
             // Skip processing
             return;
-        }        getLog().info("Loading compiled classes from project...");
+        }
+        getLog().info("Loading compiled classes from project...");
         try {
             loader = createProjectClassLoader();
             Thread.currentThread().setContextClassLoader(loader);
@@ -69,30 +71,40 @@ public class ValidateQueries extends AbstractMojo {
 
             getLog().info(format("Processing  %d classes", loadedClasses.size()));
             for (var clazz : loadedClasses) {
-                fileName = topLevelClassOf(clazz).getCanonicalName().replace(".", "/") + ".java";
-                validate(clazz);
+                var fileName = topLevelClassOf(clazz).getCanonicalName().replace(".", "/") + ".java";
+                results.addAll(validate(clazz, fileName));
             }
-            if (!errors.isEmpty()) {
+            if (!results.isEmpty()) {
+                var errors = results.stream()
+                        .filter(result -> result instanceof Error)
+                        .map(result -> (Error) result).toList();
                 for (var error : errors.stream()
                         .sorted(Comparator.comparing(Error::fileName).thenComparing(Error::lineNumber)).toList()) {
                     getLog().error(format("Unsupported lambda code at line %d in %s: %s",
                             error.lineNumber(), error.fileName(), error.error()));
                 }
-                getLog().error("");
-                getLog().error("The most likely cause of these errors is one of the following:");
-                getLog().error("");
-                getLog().error("""
-                • A query lambda, while looking as if it can map to valid SQL, generates an unexpected Java bytecode.
-                If you feel this is the case, report it""" );
-                getLog().error("""
+                if (!errors.isEmpty()) {
+                    getLog().error("");
+                    getLog().error("The most likely cause of these errors is one of the following:");
+                    getLog().error("");
+                    getLog().error("""
+                        • A query lambda, while looking as if it can map to valid SQL, generates an unexpected Java bytecode.
+                        If you feel this is the case, report it""");
+                    getLog().error("""
                         • A query lambda cannot be represented in SQL. Review the lambda to ensure it is doing what
                          you want it to do, and if so, consider rewriting it in a way that is more likely to be supported.""");
-                getLog().error("");
-                throw new MojoFailureException(format("There %s %d lambda%s with errors. Queries will fail at runtime",
-                        errors.size() == 1 ? "is" : "are",
-                        errors.size(),
-                        errors.size() == 1 ? "" : "s"));
+                    getLog().error("");
+                    throw new MojoFailureException(format("There %s %d lambda%s with errors. Queries will fail at runtime",
+                            errors.size() == 1 ? "is" : "are",
+                            errors.size(),
+                            errors.size() == 1 ? "" : "s"));
+                }
             }
+            getLog().info(format("Processed %d classes, evaluated %d lambdas, %d OK and %d errors",
+                    loadedClasses.size(), results.size(), results.stream().filter(result -> result instanceof Ok).count(),
+                    results.stream().filter(result -> (result instanceof Error)).count()
+            ));
+
         } catch (Exception e) {
             throw new MojoExecutionException("Failed to load project classes", e);
         }
@@ -112,7 +124,9 @@ public class ValidateQueries extends AbstractMojo {
         return new URLClassLoader(urls.toArray(new URL[0]), Thread.currentThread().getContextClassLoader());
     }
 
-    /** A nested class lives in its enclosing class's .java file, not one of its own. */
+    /**
+     * A nested class lives in its enclosing class's .java file, not one of its own.
+     */
     private Class<?> topLevelClassOf(Class<?> type) {
         var enclosing = type.getEnclosingClass();
         return enclosing == null ? type : topLevelClassOf(enclosing);
@@ -126,49 +140,49 @@ public class ValidateQueries extends AbstractMojo {
         return file.toURI().toURL();
     }
 
-    private void validate(Class<?> type) {
+    private List<Result> validate(Class<?> type, String fileName) {
         // Binary name, not canonical name: a nested class's .class file is Outer$Inner.class,
         // and getCanonicalName() renders that boundary as a dot instead of a dollar sign.
         var model = getClassModel(type.getName());
-        model.elementStream()
+        return model.elementStream()
                 .filter(e -> e instanceof MethodModel)
                 .map(MethodModel.class::cast)
                 // Every serializable lambda in a class is re-invoked from a switch in this one
-                // synthetic method, so as to be able to invoke it again on deserialization. Its
+                // synthetic method, to be able to invoke it again on deserialization. Its
                 // invokedynamic call sites are the same ones already reached through the code that
                 // actually creates each lambda - walking it too would parse every lambda body a
                 // second time for nothing, tagged with this method's own line (the class
-                // declaration), not the lambda's.
+                // declaration)
                 .filter(m -> !m.methodName().stringValue().equals("$deserializeLambda$"))
                 .flatMap(CompoundElement::elementStream)
                 .filter(e -> e instanceof CodeModel)
                 .map(CodeModel.class::cast)
                 .flatMap(CompoundElement::elementStream)
                 .filter(el -> el instanceof LineNumber || el instanceof InvokeDynamicInstruction)
-                .forEach(this::validate);
+                .map(el -> validate(el, fileName))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
-    private void validate(CodeElement el) {
+    private Result validate(CodeElement el, String fileName) {
         switch (el) {
             case LineNumber ln -> lineNumber = ln.line();
             case InvokeDynamicInstruction id -> {
                 try {
                     invokeDynamic(id);
+                    return new Ok(fileName, lineNumber);
                 } catch (BytecodeParseException e) {
-                    errors.add(new Error(fileName, e.line(), e.getMessage(), e));
+                    return new Error(fileName, e.line(), e.getMessage(), e);
                 } catch (Exception e) {
-                    // Anything else is a bug we did not anticipate rather than a construct we
-                    // deliberately reject, so it gets its own wording - and since it did not come
-                    // from BytecodeParser, there is no line within the lambda to blame; the call
-                    // site's own line is the best available.
-                    errors.add(new Error(fileName, lineNumber,
+                    return new Error(fileName, lineNumber,
                             format("Uncaught %s while parsing lambda (%s). BUG!",
-                                    e.getClass().getSimpleName(), e.getMessage()), e));
+                                    e.getClass().getSimpleName(), e.getMessage()), e);
                 }
             }
             default -> {
             }
         }
+        return null;
     }
 
     private void invokeDynamic(InvokeDynamicInstruction idi) throws DecoderException {
@@ -193,7 +207,20 @@ public class ValidateQueries extends AbstractMojo {
                         method = lookup.revealDirect(implHandle.resolveConstantDesc(lookup)).reflectAs(Method.class, lookup);
                         // The indy call site's parameters are the captured values, so its count
                         // is how many of the body's leading parameters the lambda captured.
-                        parseBytecode(findCodeModel(method), idi.typeSymbol().parameterCount());
+                        var code = parseBytecode(findCodeModel(method), idi.typeSymbol().parameterCount());
+                        // A predicate (boolean return) is consumed by ClauseBuilder, which fully
+                        // supports a bare boolean expression, a list (for in()/notIn()), and more -
+                        // only a value-producing lambda (anything else) is ever handed to
+                        // ColumnResolver, which refuses those same shapes unconditionally. Only this
+                        // call site - which alone knows what kind of lambda it just found - can tell
+                        // the two apart; BytecodeParser decodes without caring which one it is.
+                        if (method.getReturnType() != boolean.class) {
+                            var reason = reasonNotSelectable(resolve(code));
+                            if (reason.isPresent()) {
+                                throw new BytecodeParseException(lineNumber,
+                                        format("%s cannot be used as a query value", reason.get()));
+                            }
+                        }
                     }
                 } catch (ReflectiveOperationException e) {
                     throw new BytecodeParseException(lineNumber, e.getMessage(), e);
@@ -296,11 +323,20 @@ public class ValidateQueries extends AbstractMojo {
         return classes;
     }
 
+    private sealed interface Result permits Ok, Error {
+        String fileName();
+
+        int lineNumber();
+    }
+
+    private record Ok(String fileName, int lineNumber) implements Result {
+    }
+
     /**
      * @param e the exception the failure was reported as, kept for a future improvement that
      *          wants its stack trace or cause chain - not currently shown to the user.
      */
-    private record Error(String fileName, int lineNumber, String error, Exception e) {
+    private record Error(String fileName, int lineNumber, String error, Exception e) implements Result {
 
         // Two reports of the same problem at the same place are one error, even if each was
         // thrown as its own exception instance - equals()/hashCode() are overridden so e (which

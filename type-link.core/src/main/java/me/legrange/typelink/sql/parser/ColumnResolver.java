@@ -49,20 +49,26 @@ final class ColumnResolver {
     }
 
     static SqlColumn column(Context context, Value value) {
+        // These four shapes are never a column regardless of context - the same, single check
+        // ValidateQueries runs at compile time, before a Context even exists to offer it. See
+        // UnrepresentableValues for why they're extracted rather than left inline below.
+        var reason = UnrepresentableValues.reasonNotSelectable(value);
+        if (reason.isPresent()) {
+            throw new QueryParseException(reason.get() + " not supported. BUG!");
+        }
         return switch (value) {
             case Constant<?> cv -> constant(cv);
             case StaticFieldReference fw -> constant(fw);
             case Argument arg -> tableForType(context, arg.type());
-            case ListValue _ -> throw new QueryParseException("List value not supported. BUG!");
             case MethodCall methodCall -> methodCall(context, methodCall);
             case ConstructorCall constructorCall -> constructorCall(context, constructorCall);
             case Operator operator -> operator(context, operator);
-            case MethodReference _ -> throw new QueryParseException("Method reference not supported. BUG!");
-            case StaticMethodCall _ -> throw new QueryParseException("Static method calls not supported. BUG!");
             case InstanceFieldReference fi -> columnForField(context, fi);
-            case Expression _ -> throw new QueryParseException("Expression not supported. BUG!");
             case NewObject no -> columnForNewObject(context, no);
             case Reference _ -> throw new QueryParseException("Reference not supported. BUG!");
+            // Unreachable: refused above by reasonNotSelectable.
+            case ListValue _, MethodReference _, StaticMethodCall _, Expression _ ->
+                    throw new IllegalStateException("unreachable");
         };
     }
 

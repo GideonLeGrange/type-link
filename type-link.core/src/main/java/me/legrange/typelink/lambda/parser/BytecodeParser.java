@@ -53,6 +53,19 @@ public final class BytecodeParser {
     }
 
     /**
+     * The value a decoded lambda body ultimately stands for - a {@link Return}'s value as-is, or a
+     * {@link Branch} folded into the {@link Expression} it represents. Every caller that wants to
+     * know what a lambda actually computes, rather than the raw control-flow shape it decoded to,
+     * needs this same step; it used to be duplicated in {@link LambdaParser#parse}.
+     */
+    public static Value resolve(ByteCodeModel code) {
+        return switch (code) {
+            case Branch jump -> generateExpression(jump);
+            case Return ret -> ret.value();
+        };
+    }
+
+    /**
      * Parse a lambda that is nested inside another one, given the values it captured.
      *
      * <p>Only the outermost lambda is serialized, so only its captures can be read back from a
@@ -307,10 +320,7 @@ public final class BytecodeParser {
         if (value instanceof NewObject(var type, var fields)) {
             value = dereference(new ConstructorCall(type, getConstructor(type, fields.size()), fields), heap::get);
         }
-        return switch (value) {
-            case StaticMethodCall smc -> throw unsupported(smc.method().getName());
-            default ->  new Return(dereference(value, heap::get));
-        };
+        return new Return(dereference(value, heap::get));
     }
 
     private ByteCodeModel returnVal(Value val) {
