@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.classfile.*;
+import java.lang.classfile.constantpool.Utf8Entry;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
 import java.lang.classfile.instruction.LineNumber;
 import java.lang.constant.ClassDesc;
@@ -31,7 +32,10 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.lambda.parser.BytecodeParser.parseBytecode;
@@ -42,8 +46,6 @@ import static me.legrange.typelink.sql.parser.UnrepresentableValues.reasonNotSel
  * Maven Mojo for validating typelink queries.
  * Loads all compiled classes from the project so they can be evaluated.
  */
-// FIXME this plugin contains copied code from ClassUtil. ClassUtil probably needs to be
-// reworked to accept a class loader, or at least have some methods exposed.
 @Mojo(name = "validate-queries", defaultPhase = LifecyclePhase.VALIDATE,
         requiresDependencyResolution = ResolutionScope.COMPILE)
 public class ValidateQueries extends AbstractMojo {
@@ -57,22 +59,59 @@ public class ValidateQueries extends AbstractMojo {
     private int lineNumber;
     private final Set<Result> results = new HashSet<>();
 
+    /**
+     * The only interfaces a lambda has to implement to be one of this library's query lambdas -
+     * read from {@link SelectFunction} and {@link QueryPredicate}'s own {@code permits} clause
+     * rather than listed by hand, so a leaf added to either sealed hierarchy later (a
+     * {@code SelectFunction4}, say) is picked up here automatically instead of silently going
+     * unvalidated until someone remembers this list exists too. Checked against each
+     * {@code invokedynamic} call site's own target type - not every serializable lambda in a
+     * matching class is one of ours, and a class doing its own unrelated serialization (RPC,
+     * events, whatever) can easily have others.
+     */
+    private static final Set<ClassDesc> QUERY_LAMBDA_INTERFACES = Stream.of(SelectFunction.class, QueryPredicate.class)
+            .flatMap(sealedRoot -> Stream.of(sealedRoot.getPermittedSubclasses()))
+            .map(Class::describeConstable)
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableSet());
+
+    /**
+     * The same interfaces as {@link #QUERY_LAMBDA_INTERFACES}, as the internal names they appear
+     * under in a constant pool ({@code "Lme/legrange/typelink/SelectFunction1;"} to
+     * {@code "me/legrange/typelink/SelectFunction1"}) - for the cheap, class-wide pre-check in
+     * {@link #referencesQueryLambda}, which has no call site descriptor to compare a {@link ClassDesc}
+     * against yet, only raw constant pool strings.
+     */
+    private static final Set<String> QUERY_LAMBDA_INTERFACE_NAMES = QUERY_LAMBDA_INTERFACES.stream()
+            .map(desc -> desc.descriptorString().substring(1, desc.descriptorString().length() - 1))
+            .collect(Collectors.toUnmodifiableSet());
+
     public void execute() throws MojoExecutionException {
         var packaging = project.getPackaging();
         if ("pom".equals(packaging) || "maven-archetype".equals(packaging)) {
             // Skip processing
             return;
         }
-        getLog().info("Loading compiled classes from project...");
+        getLog().info("Scanning compiled classes from project...");
         try {
             loader = createProjectClassLoader();
             Thread.currentThread().setContextClassLoader(loader);
-            var loadedClasses = loadAllClasses(new File(outputDirectory), loader, "");
+            var classNames = findAllClasses(new File(outputDirectory), "");
 
-            getLog().info(format("Processing  %d classes", loadedClasses.size()));
-            for (var clazz : loadedClasses) {
-                var fileName = topLevelClassOf(clazz).getCanonicalName().replace(".", "/") + ".java";
-                results.addAll(validate(clazz, fileName));
+            getLog().info(format("Found %d classes", classNames.size()));
+            var candidates = 0;
+            for (var className : classNames) {
+                var model = getClassModel(className);
+                // Loading (let alone initialising) every class just to ask whether it builds a
+                // type-link query would run the static initialiser of everything in the project.
+                // A class that never mentions any of these six interfaces cannot possibly create a
+                // lambda implementing one, so it is skipped before any of that.
+                if (!referencesQueryLambda(model)) {
+                    continue;
+                }
+                candidates++;
+                var fileName = topLevelBinaryName(className).replace('.', '/') + ".java";
+                results.addAll(validate(model, fileName));
             }
             if (!results.isEmpty()) {
                 var errors = results.stream()
@@ -100,8 +139,9 @@ public class ValidateQueries extends AbstractMojo {
                             errors.size() == 1 ? "" : "s"));
                 }
             }
-            getLog().info(format("Processed %d classes, evaluated %d lambdas, %d OK and %d errors",
-                    loadedClasses.size(), results.size(), results.stream().filter(result -> result instanceof Ok).count(),
+            getLog().info(format("%d of %d classes reference a query lambda; evaluated %d lambdas, %d OK and %d errors",
+                    candidates, classNames.size(), results.size(),
+                    results.stream().filter(result -> result instanceof Ok).count(),
                     results.stream().filter(result -> (result instanceof Error)).count()
             ));
 
@@ -125,11 +165,30 @@ public class ValidateQueries extends AbstractMojo {
     }
 
     /**
-     * A nested class lives in its enclosing class's .java file, not one of its own.
+     * A nested class lives in its enclosing class's .java file, not one of its own - and a binary
+     * name says so without needing the class loaded: {@code Outer$Inner$Innermost} nests under
+     * {@code Outer}, whatever comes before its first {@code $}.
      */
-    private Class<?> topLevelClassOf(Class<?> type) {
-        var enclosing = type.getEnclosingClass();
-        return enclosing == null ? type : topLevelClassOf(enclosing);
+    private String topLevelBinaryName(String binaryName) {
+        var dollar = binaryName.indexOf('$');
+        return dollar < 0 ? binaryName : binaryName.substring(0, dollar);
+    }
+
+    /**
+     * Whether {@code model}'s constant pool mentions any of the six interfaces
+     * ({@code SelectFunction1/2/3}, {@code QueryPredicate1/2/3}) a lambda must implement to be one
+     * of this library's query lambdas. A class that names none of them cannot invoke one of the
+     * fluent methods that takes one, and so cannot contain a lambda worth decoding - checked before
+     * paying to walk every method's instructions for one that was never going to be there.
+     */
+    private boolean referencesQueryLambda(ClassModel model) {
+        for (var entry : model.constantPool()) {
+            if (entry instanceof Utf8Entry utf8
+                    && QUERY_LAMBDA_INTERFACE_NAMES.stream().anyMatch(utf8.stringValue()::contains)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private URL makeUrl(String dir) throws MalformedURLException {
@@ -140,10 +199,7 @@ public class ValidateQueries extends AbstractMojo {
         return file.toURI().toURL();
     }
 
-    private List<Result> validate(Class<?> type, String fileName) {
-        // Binary name, not canonical name: a nested class's .class file is Outer$Inner.class,
-        // and getCanonicalName() renders that boundary as a dot instead of a dollar sign.
-        var model = getClassModel(type.getName());
+    private List<Result> validate(ClassModel model, String fileName) {
         return model.elementStream()
                 .filter(e -> e instanceof MethodModel)
                 .map(MethodModel.class::cast)
@@ -169,7 +225,9 @@ public class ValidateQueries extends AbstractMojo {
             case LineNumber ln -> lineNumber = ln.line();
             case InvokeDynamicInstruction id -> {
                 try {
-                    invokeDynamic(id);
+                    if (!invokeDynamic(id)) {
+                        return null;
+                    }
                     return new Ok(fileName, lineNumber);
                 } catch (BytecodeParseException e) {
                     return new Error(fileName, e.line(), e.getMessage(), e);
@@ -185,47 +243,59 @@ public class ValidateQueries extends AbstractMojo {
         return null;
     }
 
-    private void invokeDynamic(InvokeDynamicInstruction idi) throws DecoderException {
-        if (idi.opcode() != Opcode.INVOKEDYNAMIC) {
-            throw new BytecodeParseException(lineNumber, format("Unsupported opcode %s", idi.opcode()));
-        }
+    /**
+     * @return whether {@code idi} builds one of this library's own query lambdas at all - false
+     * for anything else an ordinary class does with {@code invokedynamic} (string concatenation,
+     * an unrelated lambda, a method reference passed to a stream, another library's own
+     * serializable functional interface), none of which this method touches.
+     */
+    private boolean invokeDynamic(InvokeDynamicInstruction idi) throws DecoderException {
         var bsm = idi.bootstrapMethod();
         var bsmMethod = bsm.methodName();
-        // Check if it's a lambda metafactory
-        if (bsm.owner().equals(ClassDesc.of("java.lang.invoke.LambdaMetafactory"))
-                && (bsmMethod.equals("metafactory") || bsmMethod.equals("altMetafactory"))) {
-            var args = idi.bootstrapArgs();
-            if (args.size() >= 3) {
-                var implHandle = (DirectMethodHandleDesc) args.get(1); // Handle to lambda body
-                Method method;
-                try {
-                    // Flags (if altMetafactory)
-                    var flags = (args.size() > 3) ? (Integer) args.get(3) : 0;
-                    var isSerializable = (flags & LambdaMetafactory.FLAG_SERIALIZABLE) != 0;
-                    if (isSerializable) {
-                        var lookup = MethodHandles.privateLookupIn(classForDesc(implHandle.owner()), MethodHandles.lookup());
-                        method = lookup.revealDirect(implHandle.resolveConstantDesc(lookup)).reflectAs(Method.class, lookup);
-                        // The indy call site's parameters are the captured values, so its count
-                        // is how many of the body's leading parameters the lambda captured.
-                        var code = parseBytecode(findCodeModel(method), idi.typeSymbol().parameterCount());
-                        // A predicate (boolean return) is consumed by ClauseBuilder, which fully
-                        // supports a bare boolean expression, a list (for in()/notIn()), and more -
-                        // only a value-producing lambda (anything else) is ever handed to
-                        // ColumnResolver, which refuses those same shapes unconditionally. Only this
-                        // call site - which alone knows what kind of lambda it just found - can tell
-                        // the two apart; BytecodeParser decodes without caring which one it is.
-                        if (method.getReturnType() != boolean.class) {
-                            var reason = reasonNotSelectable(resolve(code));
-                            if (reason.isPresent()) {
-                                throw new BytecodeParseException(lineNumber,
-                                        format("%s cannot be used as a query value", reason.get()));
-                            }
-                        }
-                    }
-                } catch (ReflectiveOperationException e) {
-                    throw new BytecodeParseException(lineNumber, e.getMessage(), e);
+        if (!bsm.owner().equals(ClassDesc.of("java.lang.invoke.LambdaMetafactory"))
+                || !(bsmMethod.equals("metafactory") || bsmMethod.equals("altMetafactory"))) {
+            return false;
+        }
+        // The call site's own return type names the interface the lambda it creates implements -
+        // checked before any reflection or decoding, so a class that happens to build both a
+        // type-link query and, say, a Comparator or its own serializable event object only ever
+        // has the query lambda actually looked at.
+        if (!QUERY_LAMBDA_INTERFACES.contains(idi.typeSymbol().returnType())) {
+            return false;
+        }
+        var args = idi.bootstrapArgs();
+        if (args.size() < 3) {
+            return false;
+        }
+        var implHandle = (DirectMethodHandleDesc) args.get(1); // Handle to lambda body
+        try {
+            // Flags (if altMetafactory)
+            var flags = (args.size() > 3) ? (Integer) args.get(3) : 0;
+            var isSerializable = (flags & LambdaMetafactory.FLAG_SERIALIZABLE) != 0;
+            if (!isSerializable) {
+                return false;
+            }
+            var lookup = MethodHandles.privateLookupIn(classForDesc(implHandle.owner()), MethodHandles.lookup());
+            var method = lookup.revealDirect(implHandle.resolveConstantDesc(lookup)).reflectAs(Method.class, lookup);
+            // The indy call site's parameters are the captured values, so its count
+            // is how many of the body's leading parameters the lambda captured.
+            var code = parseBytecode(findCodeModel(method), idi.typeSymbol().parameterCount());
+            // A predicate (boolean return) is consumed by ClauseBuilder, which fully
+            // supports a bare boolean expression, a list (for in()/notIn()), and more -
+            // only a value-producing lambda (anything else) is ever handed to
+            // ColumnResolver, which refuses those same shapes unconditionally. Only this
+            // call site - which alone knows what kind of lambda it just found - can tell
+            // the two apart; BytecodeParser decodes without caring which one it is.
+            if (method.getReturnType() != boolean.class) {
+                var reason = reasonNotSelectable(resolve(code));
+                if (reason.isPresent()) {
+                    throw new BytecodeParseException(lineNumber,
+                            format("%s cannot be used as a query value", reason.get()));
                 }
             }
+            return true;
+        } catch (ReflectiveOperationException e) {
+            throw new BytecodeParseException(lineNumber, e.getMessage(), e);
         }
     }
 
@@ -291,36 +361,29 @@ public class ValidateQueries extends AbstractMojo {
     }
 
     /**
-     * Recursively loads all compiled classes from the output directory.
+     * Recursively collects the binary name of every compiled class under the output directory -
+     * from the file listing alone, without loading (and so without initialising - running static
+     * initialisers for the whole project) a single one of them.
      */
-    private List<Class<?>> loadAllClasses(File directory, ClassLoader classLoader, String packagePrefix) {
-        var classes = new ArrayList<Class<?>>();
+    private List<String> findAllClasses(File directory, String packagePrefix) {
+        var names = new ArrayList<String>();
         if (!directory.exists() || !directory.isDirectory()) {
-            return classes;
+            return names;
         }
         var files = directory.listFiles();
         if (files == null) {
-            return classes;
+            return names;
         }
         for (var file : files) {
             if (file.isDirectory()) {
-                // Recursively process subdirectories
                 var newPackage = packagePrefix.isEmpty() ? file.getName() : packagePrefix + "." + file.getName();
-                classes.addAll(loadAllClasses(file, classLoader, newPackage));
+                names.addAll(findAllClasses(file, newPackage));
             } else if (file.getName().endsWith(".class")) {
-                // Load the class
                 var className = file.getName().substring(0, file.getName().length() - 6); // Remove .class
-                var fullClassName = packagePrefix.isEmpty() ? className : packagePrefix + "." + className;
-                try {
-                    var clazz = Class.forName(fullClassName, true, classLoader);
-                    classes.add(clazz);
-                    getLog().debug("Loaded class: " + fullClassName);
-                } catch (ClassNotFoundException e) {
-                    getLog().warn("Failed to load class: " + fullClassName, e);
-                }
+                names.add(packagePrefix.isEmpty() ? className : packagePrefix + "." + className);
             }
         }
-        return classes;
+        return names;
     }
 
     private sealed interface Result permits Ok, Error {
