@@ -307,7 +307,10 @@ public final class BytecodeParser {
         if (value instanceof NewObject(var type, var fields)) {
             value = dereference(new ConstructorCall(type, getConstructor(type, fields.size()), fields), heap::get);
         }
-        return new Return(dereference(value, heap::get));
+        return switch (value) {
+            case StaticMethodCall smc -> throw unsupported(smc.method().getName());
+            default ->  new Return(dereference(value, heap::get));
+        };
     }
 
     private ByteCodeModel returnVal(Value val) {
