@@ -309,7 +309,7 @@ public final class BytecodeParser {
     private ByteCodeModel retrn(ReturnInstruction ri) throws DecoderException {
         return switch (ri.opcode()) {
             case ARETURN -> returnRef(pop());
-            case IRETURN, DRETURN -> returnVal(pop());
+            case IRETURN, DRETURN, LRETURN, FRETURN -> returnVal(pop());
             case RETURN -> returnRef(variables.get(0));
             default -> throw unsupported(ri.opcode());
         };
