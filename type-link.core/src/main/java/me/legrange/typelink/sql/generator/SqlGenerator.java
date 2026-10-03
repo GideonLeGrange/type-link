@@ -6,6 +6,7 @@ import me.legrange.typelink.sql.structure.SqlLikeOperator.Wildcard;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -148,7 +149,7 @@ public final class SqlGenerator {
      */
     private static SqlFragment value(Object value) {
         return switch (value) {
-            case Integer _, Long _, Double _, Float _, Boolean _, String _, LocalDate _, LocalDateTime _ ->
+            case Integer _, Long _, Double _, Float _, Boolean _, String _, LocalDate _, LocalDateTime _, Date _ ->
                     SqlFragment.param(value);
             case Enum<?> e -> SqlFragment.param(e.name());
             case Collection<?> ls -> join(ls.stream().map(SqlGenerator::value).toList(), ", ", "(", ")");

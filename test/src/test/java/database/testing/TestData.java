@@ -1,5 +1,6 @@
 package database.testing;
 
+import rec.Appointment;
 import rec.Client;
 import rec.Invoice;
 import rec.Meeting;
@@ -12,11 +13,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.RecordComponent;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -92,12 +96,25 @@ public final class TestData {
             new Meeting(4L, "Unscheduled meeting with Coyote Inc", null, null)
     );
 
+    static List<Appointment> appointments = List.of(
+            new Appointment(1L, "Appointment with Acme Industries", date(LocalDateTime.of(2026, 5, 11, 9, 0))),
+            new Appointment(2L, "Appointment with Acme Corp", date(LocalDateTime.of(2026, 5, 11, 10, 0))),
+            new Appointment(3L, "Appointment with Coyote Inc", date(LocalDateTime.of(2026, 5, 11, 11, 0))),
+            new Appointment(4L, "Unscheduled appointment with Coyote Inc", null)
+    );
+
+    /** Converts a local date-time to a {@link Date} in the JVM's default time zone. */
+    public static Date date(LocalDateTime dateTime) {
+        return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
+    }
+
     static void populateData(Supplier<Connection> connectionSupplier) throws SQLException, InvocationTargetException, IllegalAccessException {
         populateTable(connectionSupplier, Person.class, persons);
         populateTable(connectionSupplier, Invoice.class, invoices);
         populateTable(connectionSupplier, Client.class, clients);
         populateTable(connectionSupplier, Town.class, towns);
         populateTable(connectionSupplier, Meeting.class, meetings);
+        populateTable(connectionSupplier, Appointment.class, appointments);
     }
 
     private static <T> void populateTable(Supplier<Connection> connectionSupplier, Class<T> type, List<T> data) throws SQLException, InvocationTargetException, IllegalAccessException {
@@ -151,6 +168,7 @@ public final class TestData {
             case Double d -> d.toString();
             case Float f -> f.toString();
             case LocalDate ld -> "'" + ld.format(DateTimeFormatter.ISO_DATE) + "'";
+            case Date d -> "'" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(d) + "'";
             case null -> "NULL";
             default -> "'" + val + "'";
         };

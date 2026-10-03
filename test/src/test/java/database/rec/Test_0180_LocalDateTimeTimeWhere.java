@@ -97,5 +97,25 @@ public final class Test_0180_LocalDateTimeTimeWhere extends DatabaseTest {
         );
     }
 
+    // Negated comparisons. These reach Flip, which has to invert isAfter/isBefore rather than
+    // return them unchanged.
+
+    @TestTemplate
+    public void testLocalDateTimeNotIsAfter(TestDatabase testDb) throws SQLException {
+        var date = LocalDateTime.of(2026, 5, 11, 10, 0);
+        testListOfRecord(testDb, "SELECT * FROM Meeting WHERE startTime<='2026-05-11 10:00'", from(testDb, Meeting.class)
+                .where(p -> !p.startTime().isAfter(date))
+                .list(), Meeting.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateTimeNotIsBefore(TestDatabase testDb) throws SQLException {
+        var date = LocalDateTime.of(2026, 5, 11, 10, 0);
+        testListOfRecord(testDb, "SELECT * FROM Meeting WHERE startTime>='2026-05-11 10:00'", from(testDb, Meeting.class)
+                .where(p -> !p.startTime().isBefore(date))
+                .list(), Meeting.class
+        );
+    }
 
 }

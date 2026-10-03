@@ -40,3 +40,9 @@ CREATE TABLE IF NOT EXISTS Meeting(
     startTime timestamp null default null,
     endTime timestamp null default null
 );
+
+CREATE TABLE IF NOT EXISTS Appointment(
+    id BIGINT PRIMARY KEY,
+    subject VARCHAR(64),
+    startTime timestamp null default null
+);

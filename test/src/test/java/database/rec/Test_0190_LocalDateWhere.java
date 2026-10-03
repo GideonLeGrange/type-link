@@ -105,4 +105,63 @@ public final class Test_0190_LocalDateWhere extends DatabaseTest {
         );
     }
 
+    // Negated and combined comparisons. These reach Flip, which has to invert isAfter/isBefore
+    // rather than return them unchanged.
+
+    @TestTemplate
+    public void testLocalDateNotIsAfter(TestDatabase testDb) throws SQLException {
+        var date = LocalDate.of(1972, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay<='1972-01-01'", from(testDb, Person.class)
+                .where(p -> !p.birthDay().isAfter(date))
+                .list(), Person.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateNotIsBefore(TestDatabase testDb) throws SQLException {
+        var date = LocalDate.of(2000, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay>='2000-01-01'", from(testDb, Person.class)
+                .where(p -> !p.birthDay().isBefore(date))
+                .list(), Person.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateIsAfterAndIsBefore(TestDatabase testDb) throws SQLException {
+        var from = LocalDate.of(1972, 1, 1);
+        var to = LocalDate.of(2000, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay>'1972-01-01' AND birthDay<'2000-01-01'", from(testDb, Person.class)
+                .where(p -> p.birthDay().isAfter(from) && p.birthDay().isBefore(to))
+                .list(), Person.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateIsBeforeOrIsAfter(TestDatabase testDb) throws SQLException {
+        var from = LocalDate.of(1972, 1, 1);
+        var to = LocalDate.of(2000, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay<'1972-01-01' OR birthDay>'2000-01-01'", from(testDb, Person.class)
+                .where(p -> p.birthDay().isBefore(from) || p.birthDay().isAfter(to))
+                .list(), Person.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateNotIsAfterAndAge(TestDatabase testDb) throws SQLException {
+        var date = LocalDate.of(1972, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay<='1972-01-01' AND age>70", from(testDb, Person.class)
+                .where(p -> !p.birthDay().isAfter(date) && p.age() > 70)
+                .list(), Person.class
+        );
+    }
+
+    @TestTemplate
+    public void testLocalDateNotIsBeforeOrAge(TestDatabase testDb) throws SQLException {
+        var date = LocalDate.of(2000, 1, 1);
+        testListOfRecord(testDb, "SELECT * FROM Person WHERE birthDay>='2000-01-01' OR age>70", from(testDb, Person.class)
+                .where(p -> !p.birthDay().isBefore(date) || p.age() > 70)
+                .list(), Person.class
+        );
+    }
+
 }

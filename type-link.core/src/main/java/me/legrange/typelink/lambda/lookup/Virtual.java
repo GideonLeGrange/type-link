@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +36,9 @@ public final class Virtual {
         }
         if (LocalDateTime.class.isAssignableFrom(targetClass)) {
             return localDate(methodName, paramCount);
+        }
+        if (Date.class.isAssignableFrom(targetClass)) {
+            return date(methodName, paramCount);
         }
         return object(methodName, paramCount);
     }
@@ -69,6 +73,24 @@ public final class Virtual {
             };
             case "equals" -> switch (paramCount) {
                 case 1 -> new VirtualMethod(list -> new Eq(list.getFirst(), list.getLast()));
+                default -> null;
+            };
+            default -> null;
+        });
+    }
+
+    private static Optional<VirtualMethod> date(String methodName, int paramCount) throws DecoderException {
+        return ofNullable(switch (methodName) {
+            case "equals" -> switch (paramCount) {
+                case 1 -> new VirtualMethod(list -> new Eq(list.getFirst(), list.getLast()));
+                default -> null;
+            };
+            case "before" -> switch (paramCount) {
+                case 1 -> new VirtualMethod(list -> new IsBefore(list.getFirst(), list.getLast()));
+                default -> null;
+            };
+            case "after" -> switch (paramCount) {
+                case 1 -> new VirtualMethod(list -> new IsAfter(list.getFirst(), list.getLast()));
                 default -> null;
             };
             default -> null;
