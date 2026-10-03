@@ -11,6 +11,7 @@ import rec.Town;
 
 import java.sql.SQLException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static me.legrange.typelink.Selects.avg;
 import static me.legrange.typelink.Selects.max;
 import static me.legrange.typelink.Selects.min;
@@ -22,14 +23,6 @@ import static me.legrange.typelink.Selects.sum;
  */
 @SuppressWarnings({"NewClassNamingConvention", "Convert2MethodRef"})
 public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
-
-    /**
-     * Selects.avg is declared to return its argument's type, but an average is always a Double. The result is taken
-     * as a Number so that the value, not the declared type, is what is checked.
-     */
-    private void testAvg(TestDatabase testDb, String sql, Number have) throws SQLException {
-        testNumber(testDb, sql, have.doubleValue(), Double.class);
-    }
 
     // --- primitive long
 
@@ -53,8 +46,8 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgLong(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(bigNum) FROM Reading", from(testDb, Reading.class)
-                .aggregate(r -> avg(r.bigNum())));
+        testNumber(testDb, "SELECT AVG(bigNum) FROM Reading", from(testDb, Reading.class)
+                .avg(Reading::bigNum), Double.class);
     }
 
     @TestTemplate
@@ -104,8 +97,8 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgBoxedLong(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(clientId) FROM Invoice", from(testDb, Invoice.class)
-                .aggregate(i -> avg(i.clientId())));
+        testNumber(testDb, "SELECT AVG(clientId) FROM Invoice", from(testDb, Invoice.class)
+                .avg(Invoice::clientId), Double.class);
     }
 
     @TestTemplate
@@ -142,8 +135,8 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgFloat(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(alt) FROM Town", from(testDb, Town.class)
-                .aggregate(t -> avg(t.alt())));
+        testNumber(testDb, "SELECT AVG(alt) FROM Town", from(testDb, Town.class)
+                .avg(Town::alt), Double.class);
     }
 
     @TestTemplate
@@ -193,8 +186,8 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgShort(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(small) FROM Reading", from(testDb, Reading.class)
-                .aggregate(r -> avg(r.small())));
+        testNumber(testDb, "SELECT AVG(small) FROM Reading", from(testDb, Reading.class)
+                .avg(Reading::small), Double.class);
     }
 
     @TestTemplate
@@ -217,8 +210,8 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgByte(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(tiny) FROM Reading", from(testDb, Reading.class)
-                .aggregate(r -> avg(r.tiny())));
+        testNumber(testDb, "SELECT AVG(tiny) FROM Reading", from(testDb, Reading.class)
+                .avg(Reading::tiny), Double.class);
     }
 
     // --- int (only max is covered elsewhere)
@@ -237,14 +230,79 @@ public final class Test_0540_AggregatesOnOtherTypes extends DatabaseTest {
 
     @TestTemplate
     public void testAvgInt(TestDatabase testDb) throws SQLException {
-        testAvg(testDb, "SELECT AVG(age) FROM Person", from(testDb, Person.class)
-                .aggregate(p -> avg(p.age())));
+        testNumber(testDb, "SELECT AVG(age) FROM Person", from(testDb, Person.class)
+                .avg(Person::age), Double.class);
     }
 
     @TestTemplate
     public void testSumIntWithAdd(TestDatabase testDb) throws SQLException {
         testNumber(testDb, "SELECT SUM(age + 1) FROM Person", from(testDb, Person.class)
                 .sum(p -> p.age() + 1), Integer.class);
+    }
+
+    // --- avg is a Double whatever the column type
+
+    @TestTemplate
+    public void testAvgWithExpression(TestDatabase testDb) throws SQLException {
+        testNumber(testDb, "SELECT AVG(bigNum * 2) FROM Reading", from(testDb, Reading.class)
+                .avg(r -> r.bigNum() * 2), Double.class);
+    }
+
+    @TestTemplate
+    public void testAvgOnJoin(TestDatabase testDb) throws SQLException {
+        testNumber(testDb, """
+                        SELECT AVG(Invoice.clientId) FROM Invoice
+                        JOIN Client ON Invoice.clientId = Client.id
+                        WHERE Client.name LIKE 'Acme%'""",
+                from(testDb, Invoice.class)
+                        .join(Client.class, (i, c) -> i.clientId().equals(c.id()))
+                        .where((_, c) -> c.name().startsWith("Acme"))
+                        .avg((i, _) -> i.clientId()), Double.class);
+    }
+
+    @TestTemplate
+    public void testAvgOnThreeTables(TestDatabase testDb) throws SQLException {
+        testNumber(testDb, """
+                        SELECT AVG(Person.age) FROM Invoice
+                        JOIN Client ON Invoice.clientId = Client.id
+                        JOIN Person ON Client.id = Person.clientId""",
+                from(testDb, Invoice.class)
+                        .join(Client.class, (i, c) -> i.clientId().equals(c.id()))
+                        .join(Person.class, (_, c, p) -> c.id().equals(p.clientId()))
+                        .avg((_, _, p) -> p.age()), Double.class);
+    }
+
+    @TestTemplate
+    public void testSelectsAvgOfLongIsTypedAsDouble(TestDatabase testDb) throws SQLException {
+        Double have = from(testDb, Reading.class).aggregate(r -> avg(r.bigNum()));
+        testNumber(testDb, "SELECT AVG(bigNum) FROM Reading", have, Double.class);
+    }
+
+    @TestTemplate
+    public void testSelectsAvgOfIntIsTypedAsDouble(TestDatabase testDb) throws SQLException {
+        Double have = from(testDb, Person.class).aggregate(p -> avg(p.age()));
+        testNumber(testDb, "SELECT AVG(age) FROM Person", have, Double.class);
+    }
+
+    @TestTemplate
+    public void testSelectsAvgInRowIsTypedAsDouble(TestDatabase testDb) throws SQLException {
+        var row = from(testDb, Reading.class).aggregate(r -> min(r.bigNum()), r -> avg(r.bigNum()));
+        Long min = row.v1();
+        Double avg = row.v2();
+        testNumber(testDb, "SELECT MIN(bigNum) FROM Reading", min, Long.class);
+        testNumber(testDb, "SELECT AVG(bigNum) FROM Reading", avg, Double.class);
+    }
+
+    @TestTemplate
+    public void testGroupByAvgOfLongIsTypedAsDouble(TestDatabase testDb) throws SQLException {
+        var have = from(testDb, Reading.class)
+                .groupBy(Reading::flag)
+                .orderBy(Reading::flag)
+                .list(Reading::flag, r -> avg(r.bigNum()));
+        var want = select(testDb, "SELECT flag,AVG(bigNum) FROM Reading GROUP BY flag ORDER BY flag", Boolean.class, Double.class);
+        assertExpected(want, have);
+        Double first = have.getFirst().v2();
+        assertThat(first).isNotNull();
     }
 
     // --- aggregate(), group by and having

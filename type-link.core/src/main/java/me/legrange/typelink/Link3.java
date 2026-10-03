@@ -94,7 +94,7 @@ abstract sealed class Link3<T1, T2, T3> extends Link permits AndLink3, DistinctL
     }
 
     @SuppressWarnings("unused")
-    public <N1 extends Number> Double avg(SelectFunction3<T1, T2, T3, Double> function1) {
+    public <N1 extends Number> Double avg(SelectFunction3<T1, T2, T3, N1> function1) {
         return aggregate(Selects.avg(function1));
     }
 

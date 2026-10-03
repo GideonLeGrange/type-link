@@ -124,8 +124,7 @@ abstract sealed class Link1<T1> extends Link permits AndLink1, DistinctLink1, Fr
         return aggregate(Selects.max(function1));
     }
 
-    @SuppressWarnings("unused")
-    public <N1 extends Number> Double avg(SelectFunction1<T1, Double> function1) {
+    public <N1 extends Number> Double avg(SelectFunction1<T1, N1> function1) {
         return aggregate(Selects.avg(function1));
     }
 

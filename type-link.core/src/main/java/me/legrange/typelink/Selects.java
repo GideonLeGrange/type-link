@@ -18,8 +18,8 @@ public final class Selects {
         return number;
     }
 
-    public static <N extends Number> N avg(N number) {
-        return number;
+    public static Double avg(Number number) {
+        return number == null ? null : number.doubleValue();
     }
 
     public static <T1> SelectFunction1<T1, Long> count() {

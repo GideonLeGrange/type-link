@@ -24,7 +24,7 @@ public sealed interface Limit2<T1, T2> extends Clause permits And2, Distinct2, F
     <N1 extends Number> N1 sum(SelectFunction2<T1, T2, N1> function1)  throws QueryException;
 
     @SuppressWarnings("unused")
-    <N1 extends Number> Double avg(SelectFunction2<T1, T2, Double> function1)  throws QueryException;
+    <N1 extends Number> Double avg(SelectFunction2<T1, T2, N1> function1)  throws QueryException;
 
     <N1 extends Number> N1 min(SelectFunction2<T1, T2, N1> function1)  throws QueryException;
 
