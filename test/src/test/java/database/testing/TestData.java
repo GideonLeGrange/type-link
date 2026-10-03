@@ -5,6 +5,7 @@ import rec.Client;
 import rec.Invoice;
 import rec.Meeting;
 import rec.Person;
+import rec.Reading;
 import rec.Town;
 
 
@@ -103,6 +104,15 @@ public final class TestData {
             new Appointment(4L, "Unscheduled appointment with Coyote Inc", null)
     );
 
+    /** Values are unique in every column except flag and chosen so that no column's order matches the id order. */
+    static List<Reading> readings = List.of(
+            new Reading(1L, "alpha", 5_000_000_000L, 2.5f, (short) 300, (byte) 12, 'C', true),
+            new Reading(2L, "bravo", 1_000_000_000_000L, -1.5f, (short) -20, (byte) -5, 'A', false),
+            new Reading(3L, "charlie", 42L, 10.25f, (short) 7, (byte) 100, 'E', true),
+            new Reading(4L, "delta", -7_000_000_000L, 0.5f, (short) 1000, (byte) 0, 'B', false),
+            new Reading(5L, "echo", 3_000_000_000L, 99.75f, (short) -300, (byte) -100, 'D', true)
+    );
+
     /** Converts a local date-time to a {@link Date} in the JVM's default time zone. */
     public static Date date(LocalDateTime dateTime) {
         return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
@@ -115,6 +125,7 @@ public final class TestData {
         populateTable(connectionSupplier, Town.class, towns);
         populateTable(connectionSupplier, Meeting.class, meetings);
         populateTable(connectionSupplier, Appointment.class, appointments);
+        populateTable(connectionSupplier, Reading.class, readings);
     }
 
     private static <T> void populateTable(Supplier<Connection> connectionSupplier, Class<T> type, List<T> data) throws SQLException, InvocationTargetException, IllegalAccessException {
@@ -167,6 +178,9 @@ public final class TestData {
             case Boolean b -> b.toString();
             case Double d -> d.toString();
             case Float f -> f.toString();
+            case Short s -> s.toString();
+            case Byte b -> b.toString();
+            case Character c -> "'" + c + "'";
             case LocalDate ld -> "'" + ld.format(DateTimeFormatter.ISO_DATE) + "'";
             case Date d -> "'" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(d) + "'";
             case null -> "NULL";

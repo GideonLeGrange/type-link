@@ -22,7 +22,8 @@ public final class Readers {
             Short.TYPE, Short.class,
             Byte.TYPE, Byte.class,
             Double.TYPE, Double.class,
-            Float.TYPE, Float.class, Boolean.TYPE, Boolean.class);
+            Float.TYPE, Float.class, Boolean.TYPE, Boolean.class,
+            Character.TYPE, Character.class);
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static List<ResultSetReader> getReaders(ResultSet rs, TableMapper<?> mapper, List<Class<?>> types) throws SQLException {

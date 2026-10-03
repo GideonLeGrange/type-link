@@ -46,3 +46,14 @@ CREATE TABLE IF NOT EXISTS Appointment(
     subject VARCHAR(64),
     startTime timestamp null default null
 );
+
+CREATE TABLE IF NOT EXISTS Reading(
+    id BIGINT PRIMARY KEY,
+    label VARCHAR(32),
+    bigNum BIGINT,
+    ratio FLOAT,
+    small SMALLINT,
+    tiny SMALLINT,
+    grade CHAR(1),
+    flag BOOLEAN
+);
