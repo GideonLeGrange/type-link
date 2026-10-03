@@ -31,7 +31,11 @@ public final class ResultSetFunctions {
         functions.put(String.class, ResultSet::getString);
         functions.put(LocalDate.class, (rs, index) -> rs.getObject(index, LocalDate.class));
         functions.put(LocalDateTime.class, (rs, index) -> rs.getObject(index, LocalDateTime.class));
-        functions.put(Date.class, ResultSet::getDate);
+        // getDate() drops the time of day; getTimestamp() keeps it (and also reads DATE columns).
+        functions.put(Date.class, (rs, index) -> {
+            var timestamp = rs.getTimestamp(index);
+            return timestamp == null ? null : new Date(timestamp.getTime());
+        });
     }
 
     public static ColumnReader<?> getColumnReader(Class<?> type) {

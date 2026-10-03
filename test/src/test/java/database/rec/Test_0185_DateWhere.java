@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 
 import static database.testing.TestData.date;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SuppressWarnings("NewClassNamingConvention")
 public final class Test_0185_DateWhere extends DatabaseTest {
@@ -198,6 +199,16 @@ public final class Test_0185_DateWhere extends DatabaseTest {
                 .where(a -> !a.startTime().before(date) || a.id() == 1)
                 .list(), Appointment.class
         );
+    }
+
+    // A date-time column must come back with its time of day, not truncated to midnight.
+    @TestTemplate
+    public void testDateKeepsTimeOfDay(TestDatabase testDb) {
+        var appointment = from(testDb, Appointment.class)
+                .where(a -> a.id() == 2L)
+                .list()
+                .getFirst();
+        assertEquals(date(LocalDateTime.of(2026, 5, 11, 10, 0)), appointment.startTime());
     }
 
 }
