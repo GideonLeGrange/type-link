@@ -26,10 +26,10 @@ final class Flip {
         };
     }
 
-    private static DateFunction flip(DateFunction fo) {
+    private static RelationalEvaluation flip(DateFunction fo) {
         return switch (fo) {
-            case IsAfter isAfter -> isAfter;
-            case IsBefore isBefore -> isBefore;
+            case IsAfter(Value left, Value right) -> new Le(left, right);
+            case IsBefore(Value left, Value right) -> new Ge(left, right);
         };
     }
 
