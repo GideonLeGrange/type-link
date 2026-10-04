@@ -24,10 +24,62 @@ final class BranchParser {
             case Branch jumpJump -> switch (jump.cont()) {
                 case True _ -> new Or(flip(jump.expression()), expression(jumpJump));
                 case False _ -> new And(jump.expression(), expression(jumpJump));
-                case Branch contJump -> new Or(new And(jump.expression(), expression(jumpJump)),
-                        new And(flip(jump.expression()), expression(contJump)));
+                case Branch contJump -> choose(jump.expression(), expression(jumpJump), expression(contJump));
             };
         };
+    }
+
+    /**
+     * Build the expression for a branch where both outcomes lead to further branches: the flow continues as
+     * {@code whenTrue} if {@code test} holds, otherwise as {@code whenFalse}.
+     * <p>
+     * The general answer is {@code (test AND whenTrue) OR (NOT test AND whenFalse)}. That is equivalent to the source
+     * when every value is TRUE or FALSE, but not under SQL's three-valued logic: with {@code test} NULL (a LEFT JOIN
+     * with no match) it is NULL even when {@code whenTrue} and {@code whenFalse} are both TRUE, so rows are dropped.
+     * Short-circuit code puts the same sub-expression behind both outcomes, for example {@code (A && X) || B} jumps
+     * to B when A is false and when X is false. When one outcome contains the other, the expression the programmer
+     * wrote is rebuilt instead of the expansion:
+     * <ul>
+     *     <li>{@code whenFalse = X OR N, whenTrue = N}: {@code N OR (NOT test AND X)}</li>
+     *     <li>{@code whenFalse = X AND N, whenTrue = N}: {@code N AND (test OR X)}</li>
+     *     <li>{@code whenTrue = X OR N, whenFalse = N}: {@code N OR (test AND X)}</li>
+     *     <li>{@code whenTrue = X AND N, whenFalse = N}: {@code N AND (NOT test OR X)}</li>
+     * </ul>
+     */
+    private static Expression choose(Expression test, Expression whenTrue, Expression whenFalse) {
+        if (whenFalse instanceof Or(var left, var right)) {
+            if (left.equals(whenTrue)) {
+                return new Or(whenTrue, new And(flip(test), right));
+            }
+            if (right.equals(whenTrue)) {
+                return new Or(whenTrue, new And(flip(test), left));
+            }
+        }
+        if (whenFalse instanceof And(var left, var right)) {
+            if (left.equals(whenTrue)) {
+                return new And(whenTrue, new Or(test, right));
+            }
+            if (right.equals(whenTrue)) {
+                return new And(whenTrue, new Or(test, left));
+            }
+        }
+        if (whenTrue instanceof Or(var left, var right)) {
+            if (left.equals(whenFalse)) {
+                return new Or(whenFalse, new And(test, right));
+            }
+            if (right.equals(whenFalse)) {
+                return new Or(whenFalse, new And(test, left));
+            }
+        }
+        if (whenTrue instanceof And(var left, var right)) {
+            if (left.equals(whenFalse)) {
+                return new And(whenFalse, new Or(flip(test), right));
+            }
+            if (right.equals(whenFalse)) {
+                return new And(whenFalse, new Or(flip(test), left));
+            }
+        }
+        return new Or(new And(test, whenTrue), new And(flip(test), whenFalse));
     }
 
     private static Expression simplify(Expression expression) {
