@@ -1,5 +1,6 @@
 package me.legrange.typelink;
 
+import me.legrange.typelink.sql.generator.IdentifierQuoter;
 import me.legrange.typelink.sql.generator.SqlFragment;
 import me.legrange.typelink.sql.structure.SqlColumn;
 import me.legrange.typelink.sql.structure.SqlQuery;
@@ -17,14 +18,38 @@ import static me.legrange.typelink.sql.generator.SqlGenerator.generate;
 public final class SqlDatabase<O> extends Database<O>{
 
     private final Supplier<Connection> connectionSupplier;
+    private final IdentifierMode identifierMode;
+    private volatile IdentifierQuoter quoter;
 
     public SqlDatabase(Supplier<Connection> connectionSupplier, TableMapper<O> mapper) {
+        this(connectionSupplier, mapper, IdentifierMode.AUTO);
+    }
+
+    /**
+     * @param identifierMode how table and column names are written into SQL; see {@link IdentifierMode}
+     */
+    public SqlDatabase(Supplier<Connection> connectionSupplier, TableMapper<O> mapper, IdentifierMode identifierMode) {
         super(mapper);
         this.connectionSupplier = connectionSupplier;
+        this.identifierMode = identifierMode;
     }
 
     public List<List<?>> query(SqlQuery query) throws SQLException {
-        return readFromSql(generate(query), query.select().columns());
+        return readFromSql(generate(query, quoter()), query.select().columns());
+    }
+
+    private IdentifierQuoter quoter() throws SQLException {
+        if (identifierMode == IdentifierMode.NEVER) {
+            return IdentifierQuoter.NONE;
+        }
+        var q = quoter;
+        if (q == null) {
+            try (var con = getConnection()) {
+                q = IdentifierQuoter.forMode(identifierMode, con.getMetaData().getIdentifierQuoteString());
+            }
+            quoter = q;
+        }
+        return q;
     }
 
     private List<List<?>> readFromSql(SqlFragment fragment, SqlColumn column) throws SQLException {
