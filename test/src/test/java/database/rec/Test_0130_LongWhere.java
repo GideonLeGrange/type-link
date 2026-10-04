@@ -8,6 +8,8 @@ import org.junit.jupiter.api.TestTemplate;
 import java.sql.SQLException;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @SuppressWarnings("NewClassNamingConvention")
 public final class Test_0130_LongWhere extends DatabaseTest {
 
@@ -44,6 +46,23 @@ public final class Test_0130_LongWhere extends DatabaseTest {
     public void testLongIn(TestDatabase testDb) throws SQLException {
         testListOfRecord(testDb, "SELECT * FROM Town WHERE id IN (9,10)", from(testDb, Town.class)
                 .where(p -> List.of(9L,10L).contains(p.id()))
+                .list(), Town.class
+        );
+    }
+
+    @TestTemplate
+    public void testLongInEmptyCollectionMatchesNothing(TestDatabase testDb) throws SQLException {
+        final List<Long> none = List.of();
+        assertTrue(from(testDb, Town.class)
+                .where(p -> none.contains(p.id()))
+                .list().isEmpty());
+    }
+
+    @TestTemplate
+    public void testLongNotInEmptyCollectionMatchesEverything(TestDatabase testDb) throws SQLException {
+        final List<Long> none = List.of();
+        testListOfRecord(testDb, "SELECT * FROM Town", from(testDb, Town.class)
+                .where(p -> !none.contains(p.id()))
                 .list(), Town.class
         );
     }

@@ -251,12 +251,24 @@ public final class SqlGenerator {
     }
 
     private SqlFragment sqlSetOperator(SqlSetOperator operator) {
+        if (isEmptySet(operator.right())) {
+            // "IN ()" is a syntax error in most databases: nothing is in an empty set, everything is not in it
+            return text(operator instanceof SqlInSet ? "1 = 0" : "1 = 1");
+        }
         return sqlPart(operator.left())
                 .plus(text(" " + switch (operator) {
                     case SqlInSet _ -> " IN ";
                     case SqlNotInSet _ -> "NOT IN ";
                 }))
                 .plus(sqlPart(operator.right()));
+    }
+
+    private static boolean isEmptySet(Object right) {
+        return switch (right) {
+            case SqlList list -> list.values().isEmpty();
+            case SqlConstant constant -> constant.value() instanceof Collection<?> values && values.isEmpty();
+            default -> false;
+        };
     }
 
     private SqlFragment sqlSimpleOperator(SqlSimpleOperator operator) {
