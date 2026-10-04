@@ -516,7 +516,7 @@ public final class BytecodeParser {
         var call = pop();
         return switch (call) {
             case MethodCall mc when mc.type().isAssignableFrom(Boolean.TYPE) -> switch (bi.opcode()) {
-                case IFEQ -> new Eq(mc, new Constant<>(true));
+                case IFEQ -> new Eq(mc, new Constant<>(false));
                 case IFNE -> new Neq(mc, new Constant<>(false));
                 default -> throw unsupported(bi.opcode());
             };
