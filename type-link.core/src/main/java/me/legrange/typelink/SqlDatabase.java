@@ -69,8 +69,19 @@ public final class SqlDatabase<O> extends Database<O>{
 
     private static void bind(PreparedStatement stmt, List<Object> params) throws SQLException {
         for (var i = 0; i < params.size(); i++) {
-            stmt.setObject(i + 1, params.get(i));
+            stmt.setObject(i + 1, bindable(params.get(i)));
         }
+    }
+
+    /**
+     * Some JDBC drivers (PostgreSQL) cannot infer an SQL type for a plain {@link java.util.Date}, so it is bound as a timestamp.
+     */
+    private static Object bindable(Object param) {
+        if (param instanceof java.util.Date date
+                && !(param instanceof java.sql.Date) && !(param instanceof java.sql.Time) && !(param instanceof java.sql.Timestamp)) {
+            return new java.sql.Timestamp(date.getTime());
+        }
+        return param;
     }
 
     private Connection getConnection() {
