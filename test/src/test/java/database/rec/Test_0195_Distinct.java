@@ -61,9 +61,12 @@ public final class Test_0195_Distinct extends DatabaseTest {
     @TestTemplate
     public void testDistinctFullRow(TestDatabase testDb) throws SQLException {
         // Every row has a unique id, so DISTINCT here must not change the row count - it just has
-        // to be valid SQL and match the control query exactly.
-        testListOfRecord(testDb, "SELECT DISTINCT * FROM Person", from(testDb, Person.class)
+        // to be valid SQL and match the control query exactly. Both sides are ordered: DISTINCT
+        // promises no order, and PostgreSQL returns the rows of a hash aggregate in whatever order
+        // the tuples hash to, which depends on the order the columns are listed in.
+        testListOfRecord(testDb, "SELECT DISTINCT * FROM Person ORDER BY id", from(testDb, Person.class)
                 .distinct()
+                .orderBy(Person::id)
                 .list(), Person.class
         );
     }
