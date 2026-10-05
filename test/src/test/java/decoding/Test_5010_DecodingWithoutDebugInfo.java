@@ -60,7 +60,7 @@ class Test_5010_DecodingWithoutDebugInfo {
             // points at the descriptor seeding and nowhere else.
             var db = new CapturingDatabase();
             db.from(Invoice.class).where(StrippedFixture.ownedBy(7L)).list();
-            assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.clientId = ?", db.sql());
+            assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.clientId = ?", db.sql());
             assertEquals(List.of(7L), db.params());
 
             // A method reference decodes to an instance method, where slot 0 is `this`. That slot
@@ -68,7 +68,7 @@ class Test_5010_DecodingWithoutDebugInfo {
             // references caught it.
             var reference = new CapturingDatabase();
             reference.from(Invoice.class).where(StrippedFixture.isPaid()).list();
-            assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.paid = ?", reference.sql());
+            assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.paid = ?", reference.sql());
         });
     }
 

@@ -77,7 +77,7 @@ class Test_5080_TypeAwareColumnNames {
 
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> i.getKey() == 7).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.invoiceId = ?", db.sql());
+        assertEquals("SELECT Invoice.amount, Invoice.key FROM Invoice WHERE Invoice.invoiceId = ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -88,7 +88,7 @@ class Test_5080_TypeAwareColumnNames {
 
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> i.key == 7).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.invoiceId = ?", db.sql());
+        assertEquals("SELECT Invoice.amount, Invoice.key FROM Invoice WHERE Invoice.invoiceId = ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -99,7 +99,7 @@ class Test_5080_TypeAwareColumnNames {
 
         db.from(Client.class).where((QueryPredicate1<Client>) c -> c.getKey() == 7).list();
 
-        assertEquals("SELECT Client.* FROM Client WHERE Client.clientId = ?", db.sql());
+        assertEquals("SELECT Client.key, Client.name FROM Client WHERE Client.clientId = ?", db.sql());
     }
 
     /** Fails: correlating on the generic key is what an access rule over many types needs. */
@@ -113,7 +113,7 @@ class Test_5080_TypeAwareColumnNames {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Client.* FROM Client WHERE (SELECT COUNT(*) FROM Invoice"
+        assertEquals("SELECT Client.key, Client.name FROM Client WHERE (SELECT COUNT(*) FROM Invoice"
                 + " WHERE Invoice.amount = Client.clientId) > ?", db.sql());
     }
 
@@ -126,7 +126,7 @@ class Test_5080_TypeAwareColumnNames {
 
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> i.getAmount() == 7).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount = ?", db.sql());
+        assertEquals("SELECT Invoice.amount, Invoice.key FROM Invoice WHERE Invoice.amount = ?", db.sql());
     }
 
     /**
@@ -139,6 +139,6 @@ class Test_5080_TypeAwareColumnNames {
 
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> i.getAmount() == 7).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount = ?", db.sql());
+        assertEquals("SELECT Invoice.amount, Invoice.key FROM Invoice WHERE Invoice.amount = ?", db.sql());
     }
 }

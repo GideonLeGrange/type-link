@@ -156,7 +156,7 @@ class Test_6000_EnclosingScopeRows {
 
         db.from(Sale.class).where(sale -> sale.saleKey() == ((Invoice) captured).saleKey()).list();
 
-        assertEquals("SELECT Sale.* FROM Sale WHERE Sale.saleKey = ?", db.sql());
+        assertEquals("SELECT Sale.saleKey, Sale.clientId FROM Sale WHERE Sale.saleKey = ?", db.sql());
         assertEquals(java.util.List.of(5), db.params());
     }
 

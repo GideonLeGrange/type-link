@@ -98,7 +98,7 @@ class Test_5030_ComparisonOperands {
         var db = new CapturingDatabase();
         db.from(Town.class).where((QueryPredicate1<Town>) t -> t.alt() > 0.0f).list();
 
-        assertEquals("SELECT Town.* FROM Town WHERE Town.alt > ?", db.sql());
+        assertEquals("SELECT Town.id, Town.name, Town.alt FROM Town WHERE Town.alt > ?", db.sql());
     }
 
     // --- the comparison-instruction path, which must keep working --------------
@@ -120,7 +120,7 @@ class Test_5030_ComparisonOperands {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(amountAbove(7)).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount > ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.amount > ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -130,7 +130,7 @@ class Test_5030_ComparisonOperands {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> i.amount() > i.id()).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount > Invoice.id", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.amount > Invoice.id", db.sql());
     }
 
     // --- helpers ---------------------------------------------------------------
@@ -143,7 +143,7 @@ class Test_5030_ComparisonOperands {
         var db = new CapturingDatabase();
         db.from(Person.class).where(predicate).list();
 
-        assertEquals("SELECT Person.* FROM Person WHERE " + where, db.sql());
+        assertEquals("SELECT Person.id, Person.clientId, Person.name, Person.age, Person.email, Person.sex, Person.birthDay FROM Person WHERE " + where, db.sql());
         assertEquals(List.of(param), db.params());
     }
 
@@ -151,7 +151,7 @@ class Test_5030_ComparisonOperands {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(predicate).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE " + where, db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE " + where, db.sql());
         assertEquals(List.of(param), db.params());
     }
 }

@@ -67,9 +67,7 @@ public final class SqlGenerator {
             case SqlAll(List<SqlColumn> list) -> switch (list.size()) {
                 case 0 -> text("*");
                 case 1 -> column(list.getFirst());
-                default -> (list.stream().allMatch(c -> c instanceof SqlTable))
-                        ? text("*")
-                        : join(list.stream().map(this::column).toList(), ", ");
+                default -> join(list.stream().map(this::column).toList(), ", ");
             };
             case SqlConstant sqlConstant -> sqlConstant(sqlConstant);
             case SqlSubSelect sqlSubSelect -> sqlSubSelect(sqlSubSelect);
@@ -171,8 +169,18 @@ public final class SqlGenerator {
         };
     }
 
+    /**
+     * A table's columns, each written out by name in the order the mapper lists them.
+     *
+     * <p>{@code Table.*} would leave the order to the database, and readers find a column by its
+     * position in the select list. Naming them is also what lets two queries select the same
+     * shape, which a {@code UNION} needs of its arms.
+     */
     private SqlFragment table(SqlTable table) {
-        return text(quoter.quote(table.table().name()) + ".*");
+        if (table.columns().isEmpty()) {
+            return text(quoter.quote(table.table().name()) + ".*");
+        }
+        return join(table.columns().stream().map(this::column).toList(), ", ");
     }
 
     private SqlFragment column(SqlTableColumn column) {

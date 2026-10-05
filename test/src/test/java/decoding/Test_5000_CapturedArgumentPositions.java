@@ -33,7 +33,7 @@ class Test_5000_CapturedArgumentPositions {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(narrow(11, 22)).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount > ? AND Invoice.id = ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.amount > ? AND Invoice.id = ?", db.sql());
         assertEquals(List.of(11, 22), db.params());
     }
 
@@ -50,7 +50,7 @@ class Test_5000_CapturedArgumentPositions {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(wideThenNarrow(11L, 22)).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.clientId = ? AND Invoice.amount > ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.clientId = ? AND Invoice.amount > ?", db.sql());
         assertEquals(List.of(11L, 22), db.params());
     }
 

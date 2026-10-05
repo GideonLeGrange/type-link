@@ -51,7 +51,7 @@ class Test_6010_SetOperands {
                         .contains(i.saleKey()))
                 .list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.saleKey  IN"
+        assertEquals("SELECT Invoice.objKey, Invoice.saleKey, Invoice.amount FROM Invoice WHERE Invoice.saleKey  IN"
                 + " (SELECT Sale.saleKey FROM Sale WHERE Sale.clientId = ?)", db.sql());
     }
 
@@ -80,7 +80,7 @@ class Test_6010_SetOperands {
 
         db.from(Invoice.class).where((QueryPredicate1<Invoice>) i -> keys.contains(i.saleKey())).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.saleKey  IN (?, ?, ?)", db.sql());
+        assertEquals("SELECT Invoice.objKey, Invoice.saleKey, Invoice.amount FROM Invoice WHERE Invoice.saleKey  IN (?, ?, ?)", db.sql());
     }
 
     /** Neither side a column: nowhere to go, and it has to say so rather than run out of stack. */

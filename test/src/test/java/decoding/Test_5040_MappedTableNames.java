@@ -41,7 +41,7 @@ class Test_5040_MappedTableNames {
         var db = new CapturingDatabase(RENAMED);
         db.from(Invoice.class).where(i -> i.paid()).list();
 
-        assertEquals("SELECT INVOICE_HEADER.* FROM INVOICE_HEADER WHERE INVOICE_HEADER.paid <> ?", db.sql());
+        assertEquals("SELECT INVOICE_HEADER.id, INVOICE_HEADER.clientId, INVOICE_HEADER.invoiceDate, INVOICE_HEADER.description, INVOICE_HEADER.amount, INVOICE_HEADER.paid FROM INVOICE_HEADER WHERE INVOICE_HEADER.paid <> ?", db.sql());
     }
 
     @Test
@@ -51,7 +51,7 @@ class Test_5040_MappedTableNames {
                 .join(Client.class, (i, c) -> i.clientId().equals(c.id()))
                 .list((i, _) -> i);
 
-        assertEquals("SELECT INVOICE_HEADER.* FROM INVOICE_HEADER"
+        assertEquals("SELECT INVOICE_HEADER.id, INVOICE_HEADER.clientId, INVOICE_HEADER.invoiceDate, INVOICE_HEADER.description, INVOICE_HEADER.amount, INVOICE_HEADER.paid FROM INVOICE_HEADER"
                 + " INNER JOIN CUSTOMER ON INVOICE_HEADER.clientId = CUSTOMER.id", db.sql());
     }
 
@@ -62,7 +62,7 @@ class Test_5040_MappedTableNames {
                 .leftJoin(Client.class, (i, c) -> i.clientId().equals(c.id()))
                 .list((i, _) -> i);
 
-        assertEquals("SELECT INVOICE_HEADER.* FROM INVOICE_HEADER"
+        assertEquals("SELECT INVOICE_HEADER.id, INVOICE_HEADER.clientId, INVOICE_HEADER.invoiceDate, INVOICE_HEADER.description, INVOICE_HEADER.amount, INVOICE_HEADER.paid FROM INVOICE_HEADER"
                 + " LEFT OUTER JOIN CUSTOMER ON INVOICE_HEADER.clientId = CUSTOMER.id", db.sql());
     }
 
@@ -73,7 +73,7 @@ class Test_5040_MappedTableNames {
                 .where((i, c) -> i.clientId().equals(c.id()))
                 .list((i, _) -> i);
 
-        assertEquals("SELECT INVOICE_HEADER.* FROM INVOICE_HEADER, CUSTOMER"
+        assertEquals("SELECT INVOICE_HEADER.id, INVOICE_HEADER.clientId, INVOICE_HEADER.invoiceDate, INVOICE_HEADER.description, INVOICE_HEADER.amount, INVOICE_HEADER.paid FROM INVOICE_HEADER, CUSTOMER"
                 + " WHERE INVOICE_HEADER.clientId = CUSTOMER.id", db.sql());
     }
 
@@ -87,7 +87,7 @@ class Test_5040_MappedTableNames {
                         .contains(i.clientId()))
                 .list();
 
-        assertEquals("SELECT INVOICE_HEADER.* FROM INVOICE_HEADER"
+        assertEquals("SELECT INVOICE_HEADER.id, INVOICE_HEADER.clientId, INVOICE_HEADER.invoiceDate, INVOICE_HEADER.description, INVOICE_HEADER.amount, INVOICE_HEADER.paid FROM INVOICE_HEADER"
                 + " WHERE INVOICE_HEADER.clientId  IN (SELECT CUSTOMER.id FROM CUSTOMER"
                 + " WHERE CUSTOMER.name LIKE ?)", db.sql());
     }
@@ -98,6 +98,6 @@ class Test_5040_MappedTableNames {
         var db = new CapturingDatabase(new RenamingMapper(Map.of()));
         db.from(Invoice.class).where(i -> i.paid()).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.paid <> ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.paid <> ?", db.sql());
     }
 }

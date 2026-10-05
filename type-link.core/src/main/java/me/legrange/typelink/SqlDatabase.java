@@ -57,7 +57,7 @@ public final class SqlDatabase<O> extends Database<O>{
              var stmt = con.prepareStatement(fragment.sql())) {
             bind(stmt, fragment.params());
             try (var rs = stmt.executeQuery()) {
-                var readers = Readers.getReaders(rs, mapper(), column);
+                var readers = Readers.getReaders(mapper(), column);
                 var raw = new ArrayList<List<?>>();
                 while (rs.next()) {
                     raw.add(readers.stream().map(reader -> reader.unpack(rs)).toList());

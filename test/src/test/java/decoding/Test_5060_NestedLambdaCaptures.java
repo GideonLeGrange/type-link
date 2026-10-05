@@ -61,7 +61,7 @@ class Test_5060_NestedLambdaCaptures {
 
         db.from(Sold.class).where(visible).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -86,7 +86,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -103,7 +103,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -121,7 +121,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " INNER JOIN Client ON Sale.clientNumber = Client.clientNumber"
                 + " WHERE Sale.soldKey = Sold.objKey AND Client.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
@@ -151,7 +151,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -171,7 +171,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -196,7 +196,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND (SELECT COUNT(*) FROM Client"
                 + " WHERE Client.clientNumber = Sale.clientNumber AND Client.clientNumber = ?) > ?) > ?",
                 db.sql());
@@ -214,7 +214,7 @@ class Test_5060_NestedLambdaCaptures {
                 .where(s -> db.from(Sale.class).where(x -> x.soldKey() == s.objKey()).count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey) > ?", db.sql());
         assertEquals(List.of(0L), db.params());
     }
@@ -230,7 +230,7 @@ class Test_5060_NestedLambdaCaptures {
                         .count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey AND Sale.clientNumber = ?) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -246,7 +246,7 @@ class Test_5060_NestedLambdaCaptures {
                         && db.from(Sale.class).where(x -> x.soldKey() == s.objKey()).count() > 0)
                 .list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey = ? AND (SELECT COUNT(*) FROM Sale"
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey = ? AND (SELECT COUNT(*) FROM Sale"
                 + " WHERE Sale.soldKey = Sold.objKey) > ?", db.sql());
         assertEquals(List.of(42, 0L), db.params());
     }
@@ -258,7 +258,7 @@ class Test_5060_NestedLambdaCaptures {
 
         db.from(Sold.class).where(s -> s.objKey() == this.mutableField).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey = ?", db.sql());
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey = ?", db.sql());
         assertEquals(List.of(42), db.params());
     }
 }

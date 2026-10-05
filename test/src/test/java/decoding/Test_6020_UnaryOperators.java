@@ -40,7 +40,7 @@ class Test_6020_UnaryOperators {
         var db = new CapturingDatabase();
         db.from(Numbers.class).where(n -> -n.i() > 0).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE ? * Numbers.i > ?", db.sql());
+        assertEquals("SELECT Numbers.i, Numbers.l, Numbers.f, Numbers.d FROM Numbers WHERE ? * Numbers.i > ?", db.sql());
         assertEquals(List.of(-1, 0), db.params());
     }
 
@@ -49,7 +49,7 @@ class Test_6020_UnaryOperators {
         var db = new CapturingDatabase();
         db.from(Numbers.class).where(n -> -n.l() > 0).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE ? * Numbers.l > ?", db.sql());
+        assertEquals("SELECT Numbers.i, Numbers.l, Numbers.f, Numbers.d FROM Numbers WHERE ? * Numbers.l > ?", db.sql());
         // Both the multiplier and the comparison's 0 are long: the multiplier matches Negate's own
         // type rather than always being a plain int.
         assertEquals(List.of(-1L, 0L), db.params());
@@ -60,7 +60,7 @@ class Test_6020_UnaryOperators {
         var db = new CapturingDatabase();
         db.from(Numbers.class).where(n -> -n.f() > 0).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE ? * Numbers.f > ?", db.sql());
+        assertEquals("SELECT Numbers.i, Numbers.l, Numbers.f, Numbers.d FROM Numbers WHERE ? * Numbers.f > ?", db.sql());
         assertEquals(List.of(-1.0f, 0.0f), db.params());
     }
 
@@ -69,7 +69,7 @@ class Test_6020_UnaryOperators {
         var db = new CapturingDatabase();
         db.from(Numbers.class).where(n -> -n.d() > 0).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE ? * Numbers.d > ?", db.sql());
+        assertEquals("SELECT Numbers.i, Numbers.l, Numbers.f, Numbers.d FROM Numbers WHERE ? * Numbers.d > ?", db.sql());
         assertEquals(List.of(-1.0, 0.0), db.params());
     }
 }

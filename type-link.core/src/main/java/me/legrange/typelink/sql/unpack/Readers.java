@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.sql.unpack.ResultSetFunctions.getColumnReader;
@@ -61,75 +60,64 @@ public final class Readers {
         return new ObjectReader(mapper, objectType, readers);
     }
 
-    public static List<ResultSetReader> getReaders(ResultSet rs, TableMapper<?> mapper, SqlColumn column) throws SQLException {
-        var columns = getColumns(rs);
-        return getReaders(mapper, columns, column, 0);
+    /**
+     * Readers for the columns a query selects, found by where each one sits in the result set.
+     *
+     * <p>Positions come from the select list itself, which {@code SqlGenerator} writes out column by
+     * column, in order. The alternative - matching {@code ResultSetMetaData} table and column names
+     * - only works while the database reports which table a result column came from, and not every
+     * result set does: the columns of a {@code UNION}, of a derived table or of an aliased table
+     * come back without the table they were read from, or with a different one.
+     *
+     * @param mapper the table mapper
+     * @param column the columns the query selects
+     */
+    public static List<ResultSetReader> getReaders(TableMapper<?> mapper, SqlColumn column) {
+        return getReaders(mapper, column, 0);
     }
 
-    private static List<ResultSetReader> getReaders(TableMapper<?> mapper, List<ColumDetail> columns, SqlColumn sqlColumn, int offset) {
+    /** The readers for {@code sqlColumn}, which starts {@code offset} columns into the result. */
+    private static List<ResultSetReader> getReaders(TableMapper<?> mapper, SqlColumn sqlColumn, int offset) {
         return switch (sqlColumn) {
-            case SqlAll sqlAll -> sqlAll(mapper, columns, sqlAll);
-            case SqlConstant sqlConstant -> List.of(sqlBasicColumn(sqlConstant));
-            case SqlFunction sqlFunction -> List.of(sqlFunction(sqlFunction, offset));
-            case SqlOperation sqlOperation -> sqlOperation(mapper, columns, sqlOperation, offset);
-            case SqlSubSelect sqlSubSelect -> sqlSubSelect(sqlSubSelect, offset);
-            case SqlTable sqlTable -> List.of(sqlTable(mapper, columns, sqlTable));
-            case SqlTableColumn sqlTableColumn -> List.of(sqlTableColumn(columns, sqlTableColumn));
-            case SqlConcat  sqlConcat -> List.of(sqlConcat(sqlConcat, offset));
+            case SqlAll sqlAll -> sqlAll(mapper, sqlAll, offset);
+            case SqlConstant sqlConstant -> List.of(positional(sqlConstant, offset));
+            case SqlFunction sqlFunction -> List.of(positional(sqlFunction, offset));
+            case SqlOperation sqlOperation -> List.of(positional(sqlOperation, offset));
+            case SqlSubSelect sqlSubSelect -> List.of(positional(sqlSubSelect, offset));
+            case SqlTable sqlTable -> List.of(sqlTable(mapper, sqlTable, offset));
+            case SqlTableColumn sqlTableColumn -> List.of(positional(sqlTableColumn, offset));
+            case SqlConcat sqlConcat -> List.of(positional(sqlConcat, offset));
         };
     }
 
-    private static List<ResultSetReader> sqlAll(TableMapper<?> mapper, List<ColumDetail> columns, SqlAll all) {
-        var sqlColumns = all.columns();
+    private static List<ResultSetReader> sqlAll(TableMapper<?> mapper, SqlAll all, int offset) {
         var res = new ArrayList<ResultSetReader>();
-        var offset = 0;
-        for (var column : sqlColumns) {
-            var reader = getReaders(mapper, columns, column, offset);
-            res.addAll(reader);
-            offset = offset + reader.stream().mapToInt(ResultSetReader::columnCount).sum();
+        var next = offset;
+        for (var column : all.columns()) {
+            var readers = getReaders(mapper, column, next);
+            res.addAll(readers);
+            next += readers.stream().mapToInt(ResultSetReader::columnCount).sum();
         }
         return res;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static ResultSetReader sqlTable(TableMapper mapper, List<ColumDetail> columns, SqlTable table) {
-        var tableName = mapper.tableName(table.type());
+    private static ResultSetReader sqlTable(TableMapper mapper, SqlTable table, int offset) {
+        List<String> columnNames = table.columns().isEmpty()
+                ? mapper.columnNames(table.type())
+                : table.columns().stream().map(SqlTableColumn::name).toList();
         var readers = new HashMap<String, ResultSetReader>();
-        List<String> columnNames = mapper.columnNames(table.type());
-        for (var colunmName : columnNames) {
-            readers.put(colunmName, new IndexedColumnReader(indexOf(columns, tableName, colunmName), getColumnReader(resolveType(mapper.columnType(table.type(), colunmName)))));
+        for (var i = 0; i < columnNames.size(); ++i) {
+            var name = columnNames.get(i);
+            readers.put(name, new IndexedColumnReader(offset + i + 1, getColumnReader(resolveType(mapper.columnType(table.type(), name)))));
         }
         return new ObjectReader(mapper, table.type(), readers);
     }
 
-
-    private static List<ResultSetReader> sqlSubSelect(SqlSubSelect subSelect, int offset) {
-        return List.of(new IndexedColumnReader(offset + 1, getColumnReader(resolveType(typeFor(subSelect)))));
+    /** A single value in the result, {@code offset} columns in. */
+    private static ResultSetReader positional(SqlColumn column, int offset) {
+        return new IndexedColumnReader(offset + 1, getColumnReader(resolveType(typeFor(column))));
     }
-
-    @SuppressWarnings("rawtypes")
-    private static List<ResultSetReader> sqlOperation(TableMapper mapper, List<ColumDetail> columns, SqlOperation operation, int offset) {
-        return Stream.concat(getReaders(mapper, columns, operation.left(), offset).stream(), getReaders(mapper, columns, operation.right(), offset).stream()).toList();
-    }
-
-    private static ResultSetReader sqlFunction(SqlFunction function, int offset) {
-        return new IndexedColumnReader(offset + 1, getColumnReader(resolveType(typeFor(function))));
-    }
-
-    private static ResultSetReader sqlConcat(SqlConcat function, int offset) {
-        return new IndexedColumnReader(offset + 1, getColumnReader(resolveType(typeFor(function))));
-    }
-
-    private static ResultSetReader sqlTableColumn(List<ColumDetail> columns, SqlTableColumn sqlColumn) {
-        return new IndexedColumnReader(
-                indexOf(columns, sqlColumn.tableName(), sqlColumn.name()),
-                getColumnReader(resolveType(sqlColumn.type())));
-    }
-
-    private static ResultSetReader sqlBasicColumn(SqlColumn sqlColumn) {
-        return new IndexedColumnReader(1, getColumnReader(resolveType(typeFor(sqlColumn))));
-    }
-
 
     private static int indexOf(List<ColumDetail> columns, String tableName, String columnName) {
         var opt = columns.stream()

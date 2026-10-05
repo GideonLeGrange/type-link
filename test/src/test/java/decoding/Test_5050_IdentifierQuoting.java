@@ -26,7 +26,7 @@ class Test_5050_IdentifierQuoting {
         var db = new CapturingDatabase();
         db.from(Group.class).where(g -> g.name().equals("x")).list();
 
-        assertEquals("SELECT `Group`.* FROM `Group` WHERE `Group`.`name` = ?", sql(db, IdentifierQuoter.of("`")));
+        assertEquals("SELECT `Group`.`id`, `Group`.`name` FROM `Group` WHERE `Group`.`name` = ?", sql(db, IdentifierQuoter.of("`")));
     }
 
     @Test
@@ -34,7 +34,7 @@ class Test_5050_IdentifierQuoting {
         var db = new CapturingDatabase();
         db.from(Group.class).where(g -> g.name().equals("x")).list();
 
-        assertEquals("SELECT \"Group\".* FROM \"Group\" WHERE \"Group\".\"name\" = ?", sql(db, IdentifierQuoter.of("\"")));
+        assertEquals("SELECT \"Group\".\"id\", \"Group\".\"name\" FROM \"Group\" WHERE \"Group\".\"name\" = ?", sql(db, IdentifierQuoter.of("\"")));
     }
 
     @Test
@@ -45,7 +45,7 @@ class Test_5050_IdentifierQuoting {
                 .orderBy((i, _) -> i.invoiceDate())
                 .list((i, _) -> i);
 
-        assertEquals("SELECT `Invoice`.* FROM `Invoice` INNER JOIN `Client` ON `Invoice`.`clientId` = `Client`.`id`"
+        assertEquals("SELECT `Invoice`.`id`, `Invoice`.`clientId`, `Invoice`.`invoiceDate`, `Invoice`.`description`, `Invoice`.`amount`, `Invoice`.`paid` FROM `Invoice` INNER JOIN `Client` ON `Invoice`.`clientId` = `Client`.`id`"
                 + " ORDER BY `Invoice`.`invoiceDate`", sql(db, IdentifierQuoter.of("`")));
     }
 
@@ -54,7 +54,7 @@ class Test_5050_IdentifierQuoting {
         var db = new CapturingDatabase();
         db.from(Group.class).where(g -> g.name().equals("x")).list();
 
-        assertEquals("SELECT Group.* FROM Group WHERE Group.name = ?", SqlGenerator.generate(db.captured()).sql());
+        assertEquals("SELECT Group.id, Group.name FROM Group WHERE Group.name = ?", SqlGenerator.generate(db.captured()).sql());
     }
 
     @Test
@@ -62,7 +62,7 @@ class Test_5050_IdentifierQuoting {
         var db = new CapturingDatabase();
         db.from(Group.class).list();
 
-        assertEquals("SELECT Group.* FROM Group", sql(db, IdentifierQuoter.of(" ")));
+        assertEquals("SELECT Group.id, Group.name FROM Group", sql(db, IdentifierQuoter.of(" ")));
     }
 
     @Test
@@ -77,7 +77,7 @@ class Test_5050_IdentifierQuoting {
         var db = new CapturingDatabase();
         db.from(Group.class).where(g -> g.name().equals("x")).list();
 
-        assertEquals("SELECT `Group`.* FROM `Group` WHERE `Group`.name = ?", sql(db, IdentifierQuoter.auto("`")));
+        assertEquals("SELECT `Group`.id, `Group`.name FROM `Group` WHERE `Group`.name = ?", sql(db, IdentifierQuoter.auto("`")));
     }
 
     @Test
@@ -88,7 +88,7 @@ class Test_5050_IdentifierQuoting {
                 .orderBy((i, _) -> i.invoiceDate())
                 .list((i, _) -> i);
 
-        assertEquals("SELECT Invoice.* FROM Invoice INNER JOIN Client ON Invoice.clientId = Client.id"
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice INNER JOIN Client ON Invoice.clientId = Client.id"
                 + " ORDER BY Invoice.invoiceDate", sql(db, IdentifierQuoter.auto("\"")));
     }
 

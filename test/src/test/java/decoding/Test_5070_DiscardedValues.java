@@ -53,7 +53,7 @@ class Test_5070_DiscardedValues {
             return s.objKey() > 7;
         }).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey > ?", db.sql());
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey > ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -67,7 +67,7 @@ class Test_5070_DiscardedValues {
             return s.objKey() > 7;
         }).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey > ?", db.sql());
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey > ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -81,7 +81,7 @@ class Test_5070_DiscardedValues {
             return s.objKey() > 7;
         }).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey > ?", db.sql());
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey > ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 
@@ -94,7 +94,7 @@ class Test_5070_DiscardedValues {
 
         db.from(Sold.class).where(s -> s.objKey() > this.constantVariable).list();
 
-        assertEquals("SELECT Sold.* FROM Sold WHERE Sold.objKey > ?", db.sql());
+        assertEquals("SELECT Sold.objKey, Sold.name FROM Sold WHERE Sold.objKey > ?", db.sql());
         assertEquals(List.of(7), db.params());
     }
 }

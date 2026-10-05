@@ -38,7 +38,7 @@ class Test_6040_LocalVariablesInLambdaBody {
             return x > 0;
         }).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE Numbers.count > ?", db.sql());
+        assertEquals("SELECT Numbers.count FROM Numbers WHERE Numbers.count > ?", db.sql());
         assertEquals(List.of(0), db.params());
     }
 
@@ -54,7 +54,7 @@ class Test_6040_LocalVariablesInLambdaBody {
             return isPositive;
         }).list();
 
-        assertEquals("SELECT Numbers.* FROM Numbers WHERE Numbers.count * ? > ?", db.sql());
+        assertEquals("SELECT Numbers.count FROM Numbers WHERE Numbers.count * ? > ?", db.sql());
         assertEquals(List.of(2, 0), db.params());
     }
 }

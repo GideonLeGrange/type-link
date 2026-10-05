@@ -39,7 +39,7 @@ class Test_5020_PredicateComposition {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(owned).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.clientId = ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.clientId = ?", db.sql());
         assertEquals(List.of(7L), db.params());
     }
 
@@ -56,7 +56,7 @@ class Test_5020_PredicateComposition {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(isPaid()).or(ownedBy(7L)).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.paid = ? OR Invoice.clientId = ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.paid = ? OR Invoice.clientId = ?", db.sql());
         assertEquals(List.of(true, 7L), db.params());
     }
 
@@ -65,7 +65,7 @@ class Test_5020_PredicateComposition {
         var db = new CapturingDatabase();
         db.from(Invoice.class).where(isPaid()).and(ownedBy(7L)).list();
 
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.paid = ? AND Invoice.clientId = ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.paid = ? AND Invoice.clientId = ?", db.sql());
         assertEquals(List.of(true, 7L), db.params());
     }
 
@@ -80,7 +80,7 @@ class Test_5020_PredicateComposition {
         db.from(Invoice.class).where(isPaid()).or(ownedViaClient).list();
 
         assertEquals("""
-                SELECT Invoice.* FROM Invoice WHERE Invoice.paid = ? \
+                SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.paid = ? \
                 OR Invoice.clientId  IN (SELECT Client.id FROM Client WHERE Client.name LIKE ?)""", db.sql());
         assertEquals(List.of(true, "Acme%"), db.params());
     }
@@ -91,7 +91,7 @@ class Test_5020_PredicateComposition {
         db.from(Invoice.class).where(i -> i.amount() > threshold()).list();
 
         // Correct: the call cannot vary per row, so resolving it once at build time is right.
-        assertEquals("SELECT Invoice.* FROM Invoice WHERE Invoice.amount > ?", db.sql());
+        assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.amount > ?", db.sql());
         assertEquals(List.of(100.0), db.params());
     }
 
