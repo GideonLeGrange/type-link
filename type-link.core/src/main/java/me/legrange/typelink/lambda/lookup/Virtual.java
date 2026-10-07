@@ -44,6 +44,9 @@ public final class Virtual {
         if (Date.class.isAssignableFrom(targetClass)) {
             return date(methodName, paramCount);
         }
+        if (Optional.class.isAssignableFrom(targetClass)) {
+            return optional(methodName, paramCount);
+        }
         return object(methodName, paramCount);
     }
 
@@ -133,6 +136,24 @@ public final class Virtual {
                         case 0 -> new VirtualMethod(List::getFirst);
                         default -> null;
                     };
+            default -> null;
+        });
+    }
+
+    private static Optional<VirtualMethod> optional(String methodName, int paramCount) throws DecoderException {
+        return ofNullable(switch (methodName) {
+            case "isEmpty" -> switch (paramCount) {
+                case 0 -> new VirtualMethod(list -> new IsNull(list.getFirst()));
+                default -> null;
+            };
+            case "isPresent" -> switch (paramCount) {
+                case 0 -> new VirtualMethod(list -> new IsNotNull(list.getFirst()));
+                default -> null;
+            };
+            case "get" -> switch (paramCount) {
+                case 0 -> new VirtualMethod(List::getFirst);
+                default -> null;
+            };
             default -> null;
         });
     }
