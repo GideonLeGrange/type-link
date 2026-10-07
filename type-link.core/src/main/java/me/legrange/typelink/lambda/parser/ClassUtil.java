@@ -13,14 +13,18 @@ import java.lang.classfile.CodeModel;
 import java.lang.classfile.constantpool.FieldRefEntry;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDesc;
+import java.lang.invoke.MethodHandleInfo;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static java.lang.String.format;
@@ -85,6 +89,32 @@ import static java.lang.String.format;
 
     static CodeModel findCodeModel(Method method) throws DecoderException {
         return findCodeModel(getClassModel(method), method);
+    }
+
+    /**
+     * The method a serializable lambda refers to, if it is a plain reference to an instance method ({@code Type::name})
+     * rather than a lambda written out. A lambda's body is code compiled for it, marked synthetic; a method reference
+     * points at a method that exists in its own right. A reference that captures something, or names a static method
+     * or constructor, is not what a mapper could take for a column, so it is not reported.
+     */
+    static Optional<Method> methodReferenceTarget(Serializable function) {
+        var lambda = toSerializedLambda(function);
+        var kind = lambda.getImplMethodKind();
+        if (lambda.getCapturedArgCount() != 0
+                || (kind != MethodHandleInfo.REF_invokeVirtual && kind != MethodHandleInfo.REF_invokeInterface)) {
+            return Optional.empty();
+        }
+        try {
+            var owner = Thread.currentThread().getContextClassLoader().loadClass(lambda.getImplClass().replace('/', '.'));
+            return Arrays.stream(owner.getDeclaredMethods())
+                    .filter(method -> method.getName().equals(lambda.getImplMethodName()))
+                    .filter(method -> MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                            .toMethodDescriptorString().equals(lambda.getImplMethodSignature()))
+                    .filter(method -> !method.isSynthetic())
+                    .findFirst();
+        } catch (ClassNotFoundException e) {
+            throw new ClassDecodingException(e.getMessage(), e);
+        }
     }
 
     static List<Object> getCapturedArguments(Serializable function) throws DecoderException {

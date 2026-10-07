@@ -98,11 +98,12 @@ final class ColumnResolver {
     }
 
     private static List<SqlColumn> columns(Context context, Lambda lambda) {
-        return switch (lambda.value()) {
+        var value = LambdaValues.of(context.mapper(), context.types(), lambda);
+        return switch (value) {
             case ConstructorCall cc -> constructorCallList(context, cc);
-            case MethodReference _ -> throw new QueryParseException("Method reference not supported in lambda. BUG!");
+            case MethodReference ref -> throw new QueryParseException(format("Method reference %s is not a column of the mapped table and has no body to expand. BUG!", ref));
             case NewObject newObject -> newObject.fields().stream().map(field -> column(context, field)).toList();
-            default -> List.of(column(context, lambda.value()));
+            default -> List.of(column(context, value));
         };
     }
 
