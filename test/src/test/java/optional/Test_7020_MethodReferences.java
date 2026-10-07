@@ -118,6 +118,16 @@ public final class Test_7020_MethodReferences extends DatabaseTest {
         assertThat(labels).containsExactly("a", "b");
     }
 
+    /** The same reference through the library's own record mapper, with nothing custom in between. */
+    @TestTemplate
+    public void anInterfaceDeclaredAccessorNeedsNoCustomMapper(TestDatabase testDb) throws SQLException {
+        createData(testDb);
+
+        var labels = from(testDb, Reminder.class).orderBy(Labelled::label).list(Labelled::label);
+
+        assertThat(labels).containsExactly("a", "b");
+    }
+
     private static void createJoinData(TestDatabase testDb) throws SQLException {
         createData(testDb);
         try (var con = testDb.getConnection(); var stmt = con.createStatement()) {

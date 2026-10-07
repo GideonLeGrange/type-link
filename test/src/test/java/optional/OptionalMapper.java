@@ -35,6 +35,16 @@ final class OptionalMapper implements TableMapper<Record> {
     }
 
     @Override
+    public boolean isColumn(Class<?> type, Method method) {
+        return isOptionalGetter(method) || delegate.isColumn(type, method);
+    }
+
+    @Override
+    public String columnName(Class<?> type, Method method) {
+        return isOptionalGetter(method) ? "due" : delegate.columnName(type, method);
+    }
+
+    @Override
     public boolean isColumn(Field field) {
         return delegate.isColumn(field);
     }

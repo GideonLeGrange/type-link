@@ -50,6 +50,21 @@ final class RecordMapper<R extends Record> implements TableMapper<R> {
                  .anyMatch(m -> m.equals(method));
     }
 
+    /**
+     * A record's components are its columns. A method reference to an accessor declared on an interface the record
+     * implements, such as {@code Labelled::label}, names the interface's method rather than the record's own, so the
+     * table being read decides: it is a column when {@code type} has a component of that name.
+     */
+    @Override
+    public boolean isColumn(Class<?> type, Method method) {
+        return isColumn(method)
+                || (type.isRecord()
+                && superType.isAssignableFrom(type)
+                && method.getParameterCount() == 0
+                && method.getDeclaringClass().isAssignableFrom(type)
+                && Arrays.stream(type.getRecordComponents()).anyMatch(rc -> rc.getName().equals(method.getName())));
+    }
+
     @Override
     public boolean isColumn(Field field) {
         return superType.isAssignableFrom(field.getDeclaringClass())
