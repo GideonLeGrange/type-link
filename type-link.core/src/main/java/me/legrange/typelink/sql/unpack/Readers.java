@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.sql.unpack.ResultSetFunctions.getColumnReader;
@@ -121,7 +122,14 @@ public final class Readers {
         var reader = column instanceof SqlTableColumn tableColumn
                 ? getDeclaredColumnReader(enumAsString(tableColumn.type()))
                 : getColumnReader(resolveType(typeFor(column)));
+        if (column instanceof SqlTableColumn tableColumn && tableColumn.optional()) {
+            return new IndexedColumnReader(offset + 1, optional(reader));
+        }
         return new IndexedColumnReader(offset + 1, reader);
+    }
+
+    private static <T> ColumnReader<Optional<T>> optional(ColumnReader<T> reader) {
+        return (rs, index) -> Optional.ofNullable(reader.read(rs, index));
     }
 
     private static int indexOf(List<ColumDetail> columns, String tableName, String columnName) {

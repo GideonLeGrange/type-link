@@ -150,10 +150,6 @@ public final class Virtual {
                 case 0 -> new VirtualMethod(list -> new IsNotNull(list.getFirst()));
                 default -> null;
             };
-            case "get" -> switch (paramCount) {
-                case 0 -> new VirtualMethod(List::getFirst);
-                default -> null;
-            };
             default -> null;
         });
     }

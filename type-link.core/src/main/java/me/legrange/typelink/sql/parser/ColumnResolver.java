@@ -7,7 +7,9 @@ import me.legrange.typelink.sql.structure.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.sql.parser.QueryParser.parseChain;
@@ -38,7 +40,7 @@ final class ColumnResolver {
             if (select instanceof FunctionSelectionLink fsl && fsl.getFunction() instanceof Selector<?> selector) {
                 res.addAll(columns(context, select, selector));
             } else {
-                res.addAll(columns(context, select.lambda()));
+                    res.addAll(columns(context, select.lambda()));
             }
         }
         return switch (res.size()) {
@@ -110,12 +112,18 @@ final class ColumnResolver {
             return new SqlSubSelect(parseChain(buildChain(mc), context));
         }
         var method = mc.method();
+        if (isOptionalGet(method)) {
+            // get() hands back the value itself, so the column stops being optional
+            return column(context, target) instanceof SqlTableColumn found
+                    ? new SqlTableColumn(found.tableName(), found.name(), found.type(), false)
+                    : column(context, target);
+        }
         var type = tableFor(context, target);
         if (context.mapper().isColumn(type, method)) {
             // The type as well as the method: one accessor inherited from a base class can mean a
             // different column in every table, and only the type says which.
             var name = context.mapper().columnName(type, method);
-            return new SqlTableColumn(context.mapper().tableName(type), name, StoredTypes.of(context.mapper(), type, name, method.getReturnType()));
+            return new SqlTableColumn(context.mapper().tableName(type), name, StoredTypes.of(context.mapper(), type, name, method.getReturnType()), method.getReturnType() == Optional.class);
         }
         throw new QueryParseException(format("Don't know how to determine SQL column from %s. BUG!", method.getName()));
     }
@@ -211,8 +219,15 @@ final class ColumnResolver {
         return res.reversed();
     }
 
+    private static boolean isOptionalGet(Method method) {
+        return method.getDeclaringClass() == Optional.class && method.getName().equals("get") && method.getParameterCount() == 0;
+    }
+
     private static boolean isColumn(Context context, MethodCall methodCall) {
         var target = methodCall.target();
+        if (isOptionalGet(methodCall.method())) {
+            return isColumn(context, target);
+        }
         if (target instanceof MethodCall mc) {
             return isColumn(context, mc);
         }

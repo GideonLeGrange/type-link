@@ -6,6 +6,7 @@ import me.legrange.typelink.sql.structure.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.sql.parser.ClauseBuilder.clause;
@@ -66,7 +67,7 @@ public final class QueryParser {
         return parse(chain, list -> enclosing.nest(enclosing.args(), types(list)));
     }
 
-    private static SqlQuery parse(Link chain, java.util.function.Function<List<Link>, Context> scope)
+    private static SqlQuery parse(Link chain, Function<List<Link>, Context> scope)
             throws QueryParseException {
         var list = toList(chain);
         var context = scope.apply(list);
