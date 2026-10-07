@@ -7,6 +7,7 @@ import me.legrange.typelink.lambda.structure.*;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -35,6 +36,9 @@ public final class Virtual {
             return localDate(methodName, paramCount);
         }
         if (LocalDateTime.class.isAssignableFrom(targetClass)) {
+            return localDate(methodName, paramCount);
+        }
+        if (LocalTime.class.isAssignableFrom(targetClass)) {
             return localDate(methodName, paramCount);
         }
         if (Date.class.isAssignableFrom(targetClass)) {

@@ -1,10 +1,12 @@
 package me.legrange.typelink.sql.unpack;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +35,11 @@ public final class ResultSetFunctions {
         // Like getInt() and friends, a NULL becomes the type's zero value for a primitive.
         functions.put(Character.TYPE, (rs, index) -> readChar(rs, index, '\0'));
         functions.put(String.class, ResultSet::getString);
+        functions.put(LocalTime.class, (rs, index) -> rs.getObject(index, LocalTime.class));
+        functions.put(BigInteger.class, (rs, index) -> {
+            var value = rs.getBigDecimal(index);
+            return value == null ? null : value.toBigInteger();
+        });
         functions.put(LocalDate.class, (rs, index) -> rs.getObject(index, LocalDate.class));
         functions.put(LocalDateTime.class, (rs, index) -> rs.getObject(index, LocalDateTime.class));
         // getDate() drops the time of day; getTimestamp() keeps it (and also reads DATE columns).

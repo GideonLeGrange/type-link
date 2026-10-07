@@ -28,6 +28,9 @@ public final class Static {
         if (Boolean.class.isAssignableFrom(targetClass)) {
             return bool(methodName);
         }
+        if (Character.class.isAssignableFrom(targetClass)) {
+            return bool(methodName);   // Character.valueOf boxes a char, like Integer.valueOf boxes an int
+        }
         if (Selects.class.isAssignableFrom(targetClass)) {
             return selects(methodName);
         }

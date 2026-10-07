@@ -183,13 +183,27 @@ final class ClauseBuilder {
 
     private static SqlRelationalOperator relationalOperator(Context context, RelationalEvaluation operator) {
         return switch (operator) {
-            case Eq(Value left, Value right) -> new SqlEq(column(context, left), value(context, right));
-            case Neq(Value left, Value right) -> new SqlNeq(column(context, left), value(context, right));
-            case Gt(Value left, Value right) -> new SqlGt(column(context, left), value(context, right));
-            case Lt(Value left, Value right) -> new SqlLt(column(context, left), value(context, right));
-            case Ge(Value left, Value right) -> new SqlGe(column(context, left), value(context, right));
-            case Le(Value left, Value right) -> new SqlLe(column(context, left), value(context, right));
+            case Eq(Value left, Value right) -> new SqlEq(column(context, left), valueFor(context, left, right));
+            case Neq(Value left, Value right) -> new SqlNeq(column(context, left), valueFor(context, left, right));
+            case Gt(Value left, Value right) -> new SqlGt(column(context, left), valueFor(context, left, right));
+            case Lt(Value left, Value right) -> new SqlLt(column(context, left), valueFor(context, left, right));
+            case Ge(Value left, Value right) -> new SqlGe(column(context, left), valueFor(context, left, right));
+            case Le(Value left, Value right) -> new SqlLe(column(context, left), valueFor(context, left, right));
         };
     }
-}
 
+    /**
+     * The value compared with a column. The bytecode of {@code x.initial() == 'Q'} compares two ints, so the
+     * literal arrives as 81; a {@code char} column holds text, so it is turned back into the character it is.
+     */
+    private static SqlPart valueFor(Context context, Value columnSide, Value valueSide) {
+        var column = column(context, columnSide);
+        var value = value(context, valueSide);
+        if (column instanceof SqlTableColumn tableColumn
+                && (tableColumn.type() == Character.TYPE || tableColumn.type() == Character.class)
+                && value instanceof SqlConstant(Object constant) && constant instanceof Integer code) {
+            return new SqlConstant(String.valueOf((char) code.intValue()));
+        }
+        return value;
+    }
+}

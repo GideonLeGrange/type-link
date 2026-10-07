@@ -3,6 +3,9 @@ package me.legrange.typelink.sql.generator;
 import me.legrange.typelink.sql.structure.*;
 import me.legrange.typelink.sql.structure.SqlLikeOperator.Wildcard;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalTime;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -162,6 +165,10 @@ public final class SqlGenerator {
         return switch (value) {
             case Integer _, Long _, Double _, Float _, Boolean _, String _, LocalDate _, LocalDateTime _, Date _ ->
                     SqlFragment.param(value);
+            case Short _, Byte _, BigDecimal _, LocalTime _ -> SqlFragment.param(value);
+            // drivers disagree about BigInteger; a DECIMAL column takes a BigDecimal everywhere
+            case BigInteger bigInteger -> SqlFragment.param(new BigDecimal(bigInteger));
+            case Character c -> SqlFragment.param(String.valueOf(c));
             case Enum<?> e -> SqlFragment.param(e.name());
             case Collection<?> ls -> join(ls.stream().map(this::value).toList(), ", ", "(", ")");
             default ->
