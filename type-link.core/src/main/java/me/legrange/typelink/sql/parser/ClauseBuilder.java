@@ -38,7 +38,7 @@ final class ClauseBuilder {
         // it captured was substituted for the enclosing scope's values as the bytecode was read, so
         // it is the enclosing lambda's arguments those values are positions in.
         var args = lc.arguments().isEmpty() ? context.args() : lc.arguments();
-        return value(context.withArgs(args), LambdaValues.of(context.mapper(), context.types(), lc));
+        return value(context.withArgs(args), lc.value());
     }
 
     static SqlPart value(Context context, Value value) {

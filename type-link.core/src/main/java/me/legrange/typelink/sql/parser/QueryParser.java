@@ -99,7 +99,8 @@ public final class QueryParser {
      */
     public static SqlClause parsePredicate(QueryPredicate1<?> predicate, Class<?> type, TableMapper<?> mapper)
             throws QueryParseException {
-        return clause(new Context(mapper, List.of(), List.of(type)), LambdaParser.parse(predicate));
+        return clause(new Context(mapper, List.of(), List.of(type)),
+                LambdaValues.resolve(mapper, List.of(type), LambdaParser.parse(predicate)));
     }
 
     private static List<Class<?>> types(List<?> list) {

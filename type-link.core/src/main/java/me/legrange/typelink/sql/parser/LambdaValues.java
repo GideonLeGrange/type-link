@@ -21,14 +21,22 @@ public final class LambdaValues {
     }
 
     /**
-     * @param types the tables of the scope the lambda belongs to, so a column is read from the right one; empty when
-     *              the caller has none, which falls back to the class that declares the method
+     * The lambda as it should be read for this mapping: itself, unless it is a method reference.
+     * <p>
+     * Whoever parses a lambda for a query calls this straight after, while the mapper and the tables are known, so
+     * the stages after it only ever see what a written-out lambda gives.
+     *
+     * @param types the tables of the scope the lambda belongs to, so a column is read from the right one
      */
+    public static Lambda resolve(TableMapper mapper, List<Class<?>> types, Lambda lambda) {
+        return lambda.value() instanceof MethodReference
+                ? new Lambda(of(mapper, types, lambda), lambda.arguments())
+                : lambda;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static Value of(TableMapper mapper, List<Class<?>> types, Lambda lambda) {
-        if (!(lambda.value() instanceof MethodReference ref)) {
-            return lambda.value();
-        }
+    private static Value of(TableMapper mapper, List<Class<?>> types, Lambda lambda) {
+        var ref = (MethodReference) lambda.value();
         var method = ref.method();
         var row = types.isEmpty() ? method.getDeclaringClass() : types.getFirst();
         if (!Modifier.isStatic(method.getModifiers()) && method.getParameterCount() == 0 && mapper.isColumn(row, method)) {

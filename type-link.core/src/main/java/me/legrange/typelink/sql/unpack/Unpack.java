@@ -2,7 +2,6 @@ package me.legrange.typelink.sql.unpack;
 
 import me.legrange.typelink.*;
 import me.legrange.typelink.lambda.structure.*;
-import me.legrange.typelink.sql.parser.LambdaValues;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -52,7 +51,7 @@ public final class Unpack {
             };
         }
         if (selection.lambda() != null) {
-            return value(mapper, LambdaValues.of(mapper, List.of(), selection.lambda()), pos);
+            return value(mapper, selection.lambda().value(), pos);
         }
         throw new UnpackException("Cannot find a way to unpack the selection. BUG!");
     }

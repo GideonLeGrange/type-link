@@ -94,11 +94,11 @@ final class ColumnResolver {
     }
 
     private static SqlColumn column(Context context, Serializable function) {
-        return column(context, LambdaParser.parse(function));
+        return column(context, LambdaValues.resolve(context.mapper(), context.types(), LambdaParser.parse(function)));
     }
 
     private static List<SqlColumn> columns(Context context, Lambda lambda) {
-        var value = LambdaValues.of(context.mapper(), context.types(), lambda);
+        var value = lambda.value();
         return switch (value) {
             case ConstructorCall cc -> constructorCallList(context, cc);
             case MethodReference ref -> throw new QueryParseException(format("Method reference %s is not a column of the mapped table and has no body to expand. BUG!", ref));
@@ -149,7 +149,7 @@ final class ColumnResolver {
             case MIN_COLUMN -> List.of(new SqlMin(column(context, selector.getFunction())));
             case MAX_COLUMN -> List.of(new SqlMax(column(context, selector.getFunction())));
             case COUNT_ROWS -> rowsSelect(context, link);
-            case LIST_ROW -> List.of(new SqlAll(types(link).stream()
+            case LIST_ROW -> List.of(new SqlAll(link.tables().stream()
                     .map(type -> new SqlTable(tableRef(context, type), tableColumns(context, type)))
                     .map(SqlColumn.class::cast)
                     .toList()));
@@ -157,7 +157,7 @@ final class ColumnResolver {
     }
 
     private static List<SqlColumn> countColumnSelect(Context context, Link link, SelectFunction function) {
-        return List.of(new SqlCount(function == null ? new SqlAll(types(link).stream()
+        return List.of(new SqlCount(function == null ? new SqlAll(link.tables().stream()
                 .map(type -> new SqlTable(tableRef(context, type), tableColumns(context, type)))
                 .map(SqlColumn.class::cast)
                 .toList()) : column(context, function)));
@@ -201,23 +201,10 @@ final class ColumnResolver {
     }
 
     private static List<SqlColumn> rowsSelect(Context context, Link link) {
-        return List.of(new SqlCount(new SqlAll(types(link).stream()
+        return List.of(new SqlCount(new SqlAll(link.tables().stream()
                 .flatMap(type -> tableColumns(context, type).stream())
                 .map(SqlColumn.class::cast)
                 .toList())));
-    }
-
-    private static List<Class<?>> types(Link link) {
-        var res = new ArrayList<Class<?>>();
-        do {
-            if (link instanceof FromLink from) {
-                res.addAll(from.types());
-            } else if (link instanceof JoinLink join) {
-                res.add(join.type());
-            }
-            link = link.left();
-        } while (link != null);
-        return res.reversed();
     }
 
     private static boolean isOptionalGet(Method method) {
