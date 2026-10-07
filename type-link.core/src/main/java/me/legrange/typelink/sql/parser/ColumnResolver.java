@@ -115,18 +115,9 @@ final class ColumnResolver {
             // The type as well as the method: one accessor inherited from a base class can mean a
             // different column in every table, and only the type says which.
             var name = context.mapper().columnName(type, method);
-            return new SqlTableColumn(context.mapper().tableName(type), name, storedType(context, type, name, method.getReturnType()));
+            return new SqlTableColumn(context.mapper().tableName(type), name, StoredTypes.of(context.mapper(), type, name, method.getReturnType()));
         }
         throw new QueryParseException(format("Don't know how to determine SQL column from %s. BUG!", method.getName()));
-    }
-
-    /**
-     * What the column holds, as the mapper sees it. The accessor may return something else, such as an
-     * {@code Optional} over a nullable column, so the mapper wins whenever it knows the column. The accessor's type
-     * is the answer for a column the mapper does not list, such as a key column it names per table.
-     */
-    private static Class<?> storedType(Context context, Class<?> type, String column, Class<?> declared) {
-        return context.mapper().columnNames(type).contains(column) ? context.mapper().columnType(type, column) : declared;
     }
 
     private static SqlColumn constructorCall(Context context, ConstructorCall cc) {
@@ -317,7 +308,7 @@ final class ColumnResolver {
         var type = tableFor(context, fi.target());
         if (context.mapper().isColumn(type, fi.field())) {
             var name = context.mapper().columnName(type, fi.field());
-            return new SqlTableColumn(context.mapper().tableName(type), name, storedType(context, type, name, fi.field().getType()));
+            return new SqlTableColumn(context.mapper().tableName(type), name, StoredTypes.of(context.mapper(), type, name, fi.field().getType()));
         }
         throw new QueryParseException(format("Don't know how to determine SQL column from %s.%s. BUG!", fi.field().getDeclaringClass().getSimpleName(), fi.field().getName()));
     }

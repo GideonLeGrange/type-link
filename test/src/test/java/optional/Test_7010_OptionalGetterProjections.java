@@ -75,7 +75,7 @@ public final class Test_7010_OptionalGetterProjections extends DatabaseTest {
         assertThat(first).contains(LocalDate.of(2026, 10, 6));
         assertThat(second).isEmpty();
     }
-
+    
     @TestTemplate
     public void getCanBeProjected(TestDatabase testDb) throws SQLException {
         createData(testDb);
