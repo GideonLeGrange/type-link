@@ -12,6 +12,7 @@ import java.util.Map;
 
 import static java.lang.String.format;
 import static me.legrange.typelink.sql.unpack.ResultSetFunctions.getColumnReader;
+import static me.legrange.typelink.sql.unpack.ResultSetFunctions.getDeclaredColumnReader;
 import static me.legrange.typelink.sql.unpack.Types.typeFor;
 
 public final class Readers {
@@ -35,7 +36,7 @@ public final class Readers {
                 List<String> columnNames = mapper.columnNames(type);
                 var columnReaders = new HashMap<String, ResultSetReader>();
                 for (var colunmName : columnNames) {
-                    columnReaders.put(colunmName, new IndexedColumnReader(indexOf(columns, tableName, colunmName), getColumnReader(resolveType(mapper.columnType(type, colunmName)))));
+                    columnReaders.put(colunmName, new IndexedColumnReader(indexOf(columns, tableName, colunmName), getDeclaredColumnReader(enumAsString(mapper.columnType(type, colunmName)))));
                 }
                 var reader = new ObjectReader(mapper, type, columnReaders);
                 res.add(reader);
@@ -55,7 +56,7 @@ public final class Readers {
         List<String> columnNames = mapper.columnNames(objectType);
         var columns = getColumns(rs);
         for (var colunmName : columnNames) {
-            readers.put(colunmName, new IndexedColumnReader(indexOf(columns, tableName, colunmName), getColumnReader(resolveType(mapper.columnType(objectType, colunmName)))));
+            readers.put(colunmName, new IndexedColumnReader(indexOf(columns, tableName, colunmName), getDeclaredColumnReader(enumAsString(mapper.columnType(objectType, colunmName)))));
         }
         return new ObjectReader(mapper, objectType, readers);
     }
@@ -109,14 +110,18 @@ public final class Readers {
         var readers = new HashMap<String, ResultSetReader>();
         for (var i = 0; i < columnNames.size(); ++i) {
             var name = columnNames.get(i);
-            readers.put(name, new IndexedColumnReader(offset + i + 1, getColumnReader(resolveType(mapper.columnType(table.type(), name)))));
+            readers.put(name, new IndexedColumnReader(offset + i + 1, getDeclaredColumnReader(enumAsString(mapper.columnType(table.type(), name)))));
         }
         return new ObjectReader(mapper, table.type(), readers);
     }
 
     /** A single value in the result, {@code offset} columns in. */
     private static ResultSetReader positional(SqlColumn column, int offset) {
-        return new IndexedColumnReader(offset + 1, getColumnReader(resolveType(typeFor(column))));
+        // a column of a table keeps NULL when its declared type is boxed; a computed value is read as a number
+        var reader = column instanceof SqlTableColumn tableColumn
+                ? getDeclaredColumnReader(enumAsString(tableColumn.type()))
+                : getColumnReader(resolveType(typeFor(column)));
+        return new IndexedColumnReader(offset + 1, reader);
     }
 
     private static int indexOf(List<ColumDetail> columns, String tableName, String columnName) {
@@ -131,6 +136,11 @@ public final class Readers {
         return opt.get();
     }
 
+
+    /** An enum is stored, and so read, as its name. */
+    private static Class<?> enumAsString(Class<?> type) {
+        return Enum.class.isAssignableFrom(type) ? String.class : type;
+    }
 
     private static Class<?>resolveType(Class<?> type) {
         if (type.isPrimitive()) {
