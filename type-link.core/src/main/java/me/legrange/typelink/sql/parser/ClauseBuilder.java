@@ -182,13 +182,69 @@ final class ClauseBuilder {
     }
 
     private static SqlRelationalOperator relationalOperator(Context context, RelationalEvaluation operator) {
-        return switch (operator) {
+        var unwrapped = unwrapCompareTo(operator);
+        return switch (unwrapped) {
             case Eq(Value left, Value right) -> new SqlEq(column(context, left), valueFor(context, left, right));
             case Neq(Value left, Value right) -> new SqlNeq(column(context, left), valueFor(context, left, right));
             case Gt(Value left, Value right) -> new SqlGt(column(context, left), valueFor(context, left, right));
             case Lt(Value left, Value right) -> new SqlLt(column(context, left), valueFor(context, left, right));
             case Ge(Value left, Value right) -> new SqlGe(column(context, left), valueFor(context, left, right));
             case Le(Value left, Value right) -> new SqlLe(column(context, left), valueFor(context, left, right));
+        };
+    }
+
+    /**
+     * {@code x.compareTo(y) > 0} decodes to {@code Gt(MethodCall(x, compareTo, [y]), Constant(0))} -
+     * a branch on an int with an implicit zero (see BytecodeParser#branchFromStack), since
+     * {@code compareTo} is just another int-returning method call to the generic decoder. It is the
+     * only way to order-compare a {@link Comparable} column such as {@code BigDecimal} or
+     * {@code BigInteger}, which have no {@code <}/{@code >} of their own - so this unwraps the
+     * compound shape back into the column/value pair the comparison is really about, flipping the
+     * operator when zero is on the left (the two sides of an {@code IFxx} are not interchangeable).
+     */
+    private static RelationalEvaluation unwrapCompareTo(RelationalEvaluation operator) {
+        if (isCompareTo(operator.left()) && isZero(operator.right())) {
+            var call = (MethodCall) operator.left();
+            return withOperands(operator, call.target(), call.parameters().getFirst());
+        }
+        if (isZero(operator.left()) && isCompareTo(operator.right())) {
+            var call = (MethodCall) operator.right();
+            return reverse(withOperands(operator, call.target(), call.parameters().getFirst()));
+        }
+        return operator;
+    }
+
+    private static boolean isCompareTo(Value value) {
+        return value instanceof MethodCall mc
+                && mc.method().getName().equals("compareTo")
+                && mc.parameters().size() == 1
+                && Comparable.class.isAssignableFrom(mc.method().getDeclaringClass());
+    }
+
+    private static boolean isZero(Value value) {
+        return value instanceof Constant<?>(Object v) && v instanceof Integer i && i == 0;
+    }
+
+    private static RelationalEvaluation withOperands(RelationalEvaluation operator, Value left, Value right) {
+        return switch (operator) {
+            case Eq _ -> new Eq(left, right);
+            case Neq _ -> new Neq(left, right);
+            case Gt _ -> new Gt(left, right);
+            case Lt _ -> new Lt(left, right);
+            case Ge _ -> new Ge(left, right);
+            case Le _ -> new Le(left, right);
+        };
+    }
+
+    /** The equivalent comparison with its operands swapped - not {@code Flip.flip}, which negates. */
+    private static RelationalEvaluation reverse(RelationalEvaluation operator) {
+        return switch (operator) {
+            case Eq(Value left, Value right) -> new Eq(left, right);
+            case Neq(Value left, Value right) -> new Neq(left, right);
+            case Gt(Value left, Value right) -> new Lt(left, right);
+            case Lt(Value left, Value right) -> new Gt(left, right);
+            case Ge(Value left, Value right) -> new Le(left, right);
+            case Le(Value left, Value right) -> new Ge(left, right);
         };
     }
 

@@ -109,6 +109,31 @@ public final class Test_0910_ExactAndTimeTypes extends DatabaseTest {
         assertThat(ids(from(testDb, Ledger.class).where(l -> serials.contains(l.serial())).list())).containsExactly(2L);
     }
 
+    /**
+     * {@code BigDecimal}/{@code BigInteger} have no {@code <}/{@code >} of their own - {@code
+     * compareTo} is the only way to order-compare them, and the idiomatic {@code x.compareTo(y) > 0}
+     * form decodes through the same implicit-zero branch path as {@code int == 0} (see
+     * Test_5030_ComparisonOperands): a bug there would silently invert the comparison rather than
+     * fail to decode, which is why both directions and both operators are asserted here.
+     */
+    @TestTemplate
+    public void bigDecimalOrderedByCompareTo(TestDatabase testDb) throws SQLException {
+        createData(testDb);
+        final var threshold = new BigDecimal("50.00");
+
+        assertThat(ids(from(testDb, Ledger.class).where(l -> l.amount().compareTo(threshold) > 0).list())).containsExactly(2L);
+        assertThat(ids(from(testDb, Ledger.class).where(l -> l.amount().compareTo(threshold) < 0).list())).containsExactly(1L);
+    }
+
+    @TestTemplate
+    public void bigIntegerOrderedByCompareTo(TestDatabase testDb) throws SQLException {
+        createData(testDb);
+        final var threshold = BigInteger.valueOf(1000);
+
+        assertThat(ids(from(testDb, Ledger.class).where(l -> l.serial().compareTo(threshold) > 0).list())).containsExactly(1L);
+        assertThat(ids(from(testDb, Ledger.class).where(l -> l.serial().compareTo(threshold) < 0).list())).containsExactly(2L);
+    }
+
     // --- small integers and characters ---------------------------------------
 
     @TestTemplate

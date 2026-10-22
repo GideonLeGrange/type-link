@@ -3,9 +3,12 @@ package decoding;
 import me.legrange.typelink.QueryPredicate1;
 import org.junit.jupiter.api.Test;
 import rec.Invoice;
+import rec.Ledger;
 import rec.Person;
 import rec.Town;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,7 +136,65 @@ class Test_5030_ComparisonOperands {
         assertEquals("SELECT Invoice.id, Invoice.clientId, Invoice.invoiceDate, Invoice.description, Invoice.amount, Invoice.paid FROM Invoice WHERE Invoice.amount > Invoice.id", db.sql());
     }
 
+    // --- compareTo: the only way to order BigDecimal/BigInteger, which have no < or > -----------
+
+    /**
+     * {@code x.compareTo(y) > 0} decodes through the very same implicit-zero branch path as
+     * {@code age > 0} above - {@code compareTo} is just another int-returning method call to the
+     * decoder. Asserting operand order here guards against the same inversion this whole file
+     * guards against for primitives: a wrong fix could turn {@code amount > y} into {@code y > amount}.
+     */
+    @Test
+    void compareToGreaterThanZero() {
+        assertLedger(l -> l.amount().compareTo(THRESHOLD) > 0, "Ledger.amount > ?", THRESHOLD);
+    }
+
+    @Test
+    void compareToLessThanZero() {
+        assertLedger(l -> l.amount().compareTo(THRESHOLD) < 0, "Ledger.amount < ?", THRESHOLD);
+    }
+
+    /** The reversed source form - zero on the left - must flip the operator, not just decode. */
+    @Test
+    void zeroLessThanCompareTo() {
+        assertLedger(l -> 0 < l.amount().compareTo(THRESHOLD), "Ledger.amount > ?", THRESHOLD);
+    }
+
+    @Test
+    void zeroGreaterThanCompareTo() {
+        assertLedger(l -> 0 > l.amount().compareTo(THRESHOLD), "Ledger.amount < ?", THRESHOLD);
+    }
+
+    @Test
+    void compareToEqualToZero() {
+        assertLedger(l -> l.amount().compareTo(THRESHOLD) == 0, "Ledger.amount = ?", THRESHOLD);
+    }
+
+    @Test
+    void bigIntegerCompareToGreaterThanZero() {
+        var threshold = BigInteger.valueOf(1000);
+        var db = new CapturingDatabase();
+        db.from(Ledger.class).where((QueryPredicate1<Ledger>) l -> l.serial().compareTo(threshold) > 0).list();
+
+        assertEquals(LEDGER_SELECT + "Ledger.serial > ?", db.sql());
+        // SqlGenerator always binds BigDecimal for a DECIMAL column - drivers disagree on BigInteger.
+        assertEquals(List.of(new BigDecimal(threshold)), db.params());
+    }
+
     // --- helpers ---------------------------------------------------------------
+
+    private static final BigDecimal THRESHOLD = new BigDecimal("50.00");
+
+    private static final String LEDGER_SELECT = "SELECT Ledger.id, Ledger.opens, Ledger.amount, Ledger.serial, "
+            + "Ledger.copies, Ledger.level, Ledger.initial, Ledger.grade FROM Ledger WHERE ";
+
+    private static void assertLedger(QueryPredicate1<Ledger> predicate, String where, Object param) {
+        var db = new CapturingDatabase();
+        db.from(Ledger.class).where(predicate).list();
+
+        assertEquals(LEDGER_SELECT + where, db.sql());
+        assertEquals(List.of(param), db.params());
+    }
 
     private static QueryPredicate1<Invoice> amountAbove(int threshold) {
         return i -> i.amount() > threshold;
