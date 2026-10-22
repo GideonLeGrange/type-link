@@ -51,9 +51,13 @@ public final class ResultSetFunctions {
 
     private static Character readChar(ResultSet rs, int index, Character ifNull) throws SQLException {
         var value = rs.getString(index);
-        if (value == null || value.isEmpty()) {
-            // not a conditional expression: its other branch is a char, which would unbox a null ifNull
+        if (value == null) {
             return ifNull;
+        }
+        // an empty string is a real value, distinct from SQL NULL - some character columns (e.g. ObjDB's) can't
+        // store the character with code 0 as itself, and use this to mean that character instead
+        if (value.isEmpty()) {
+            return 0;
         }
         return value.charAt(0);
     }

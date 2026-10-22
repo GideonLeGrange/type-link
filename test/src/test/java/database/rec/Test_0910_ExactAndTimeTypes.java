@@ -3,6 +3,7 @@ package database.rec;
 import database.testing.DatabaseTest;
 import database.testing.TestDatabase;
 import org.junit.jupiter.api.TestTemplate;
+import rec.CharRow;
 import rec.Ledger;
 
 import java.math.BigDecimal;
@@ -158,5 +159,24 @@ public final class Test_0910_ExactAndTimeTypes extends DatabaseTest {
         final var initials = Set.of('R', 'Z');
 
         assertThat(ids(from(testDb, Ledger.class).where(l -> initials.contains(l.initial())).list())).containsExactly(2L);
+    }
+
+    /**
+     * Some character columns (e.g. ObjDB's) can't store the character with code 0 as itself - PostgreSQL
+     * rejects a literal NUL in text - and store it as an empty string instead. An empty string is a real
+     * value, not SQL NULL, so a boxed {@code Character} column holding one must read back as {@code '\0'},
+     * not {@code null}.
+     */
+    @TestTemplate
+    public void anEmptyTextCharacterColumnIsZero(TestDatabase testDb) throws SQLException {
+        try (var con = testDb.getConnection(); var stmt = con.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS CharRow");
+            stmt.execute("CREATE TABLE CharRow (id BIGINT PRIMARY KEY, grade VARCHAR(1) NULL)");
+            stmt.execute("INSERT INTO CharRow VALUES (1, '')");
+            stmt.execute("INSERT INTO CharRow VALUES (2, NULL)");
+        }
+
+        assertThat(from(testDb, CharRow.class).where(r -> r.id() == 1L).list().getFirst().grade()).isEqualTo('\0');
+        assertThat(from(testDb, CharRow.class).where(r -> r.id() == 2L).list().getFirst().grade()).isNull();
     }
 }
