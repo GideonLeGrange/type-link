@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -46,6 +47,11 @@ public final class ResultSetFunctions {
         functions.put(Date.class, (rs, index) -> {
             var timestamp = rs.getTimestamp(index);
             return timestamp == null ? null : new Date(timestamp.getTime());
+        });
+        // Instant has no SQL type of its own either - read as a timestamp, same as Date.
+        functions.put(Instant.class, (rs, index) -> {
+            var timestamp = rs.getTimestamp(index);
+            return timestamp == null ? null : timestamp.toInstant();
         });
     }
 

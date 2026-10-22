@@ -5,6 +5,7 @@ import me.legrange.typelink.lambda.DecoderException;
 import me.legrange.typelink.lambda.structure.*;
 
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -39,6 +40,10 @@ public final class Virtual {
             return localDate(methodName, paramCount);
         }
         if (LocalTime.class.isAssignableFrom(targetClass)) {
+            return localDate(methodName, paramCount);
+        }
+        // Instant has the same isAfter/isBefore/equals shape as the java.time types above, not Date's before/after.
+        if (Instant.class.isAssignableFrom(targetClass)) {
             return localDate(methodName, paramCount);
         }
         if (Date.class.isAssignableFrom(targetClass)) {

@@ -9,6 +9,8 @@ import me.legrange.typelink.sql.unpack.Readers;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -75,11 +77,15 @@ public final class SqlDatabase<O> extends Database<O>{
 
     /**
      * Some JDBC drivers (PostgreSQL) cannot infer an SQL type for a plain {@link java.util.Date}, so it is bound as a timestamp.
+     * {@link Instant} has the same problem - it has no SQL type of its own - so it is bound the same way.
      */
     private static Object bindable(Object param) {
         if (param instanceof java.util.Date date
                 && !(param instanceof java.sql.Date) && !(param instanceof java.sql.Time) && !(param instanceof java.sql.Timestamp)) {
             return new java.sql.Timestamp(date.getTime());
+        }
+        if (param instanceof Instant instant) {
+            return Timestamp.from(instant);
         }
         return param;
     }
