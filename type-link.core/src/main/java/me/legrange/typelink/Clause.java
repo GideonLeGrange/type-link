@@ -1,6 +1,6 @@
 package me.legrange.typelink;
 
 public sealed interface Clause permits
-        Limit1, Limit2, Limit3,
+        Limit1, Limit2, Limit3, Limit4,
         AndLink, DistinctLink, FromLink, GroupByLink, JoinLink, LimitLink, OrLink, OrderByLink, WhereLink {
 }

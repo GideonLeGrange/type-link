@@ -20,4 +20,12 @@ public sealed interface Join3<T1, T2, T3> extends Limit3<T1, T2, T3> permits Joi
 
     Distinct3<T1, T2, T3> distinct();
 
+    <T4> Join4<T1, T2, T3, T4> join(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join);
+
+    <T4> Join4<T1, T2, T3, T4> leftJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join);
+
+    <T4> Join4<T1, T2, T3, T4> rightJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join);
+
+    <T4> Join4<T1, T2, T3, T4> fullJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join);
+
 }

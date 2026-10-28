@@ -122,6 +122,10 @@ public abstract class DatabaseTest {
         return newDatabase(db).from(type1, type2, type3);
     }
 
+    protected final <T1 extends Record, T2 extends Record, T3 extends Record, T4 extends Record> From4<T1, T2, T3, T4> from(TestDatabase db, Class<T1> type1, Class<T2> type2, Class<T3> type3, Class<T4> type4) {
+        return newDatabase(db).from(type1, type2, type3, type4);
+    }
+
     protected final <R extends Row, T> void testListOfCustom(TestDatabase db, String query, List<T> testData, Function<R, T> function, Class<? extends Record>... types) throws SQLException {
         var controlData = select(db, query, function, types);
         assertThat(testData)

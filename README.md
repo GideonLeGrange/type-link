@@ -58,13 +58,21 @@ against an existing schema whose column naming it already owns.
 
 ## What you can write
 
-Queries over one, two or three tables, joined with a lambda over both sides:
+Queries over one to four tables, joined with a lambda over both sides:
 
 ```java
 db.from(Invoice.class)
   .join(Client.class, (i, c) -> i.clientId().equals(c.id()))
   .join(Person.class, (_, c, p) -> c.id().equals(p.clientId()))
   .where((_, _, p) -> p.name().equals("Bob Jones"))
+  .list();
+```
+
+A fourth table works the same way, either by chaining `join()` or by naming all four in `from()`:
+
+```java
+db.from(Invoice.class, Client.class, Person.class, Meeting.class)
+  .where((i, c, p, m) -> i.clientId().equals(c.id()) && c.id().equals(p.clientId()) && c.id().equals(m.id()))
   .list();
 ```
 

@@ -1,6 +1,6 @@
 package me.legrange.typelink;
 
-public abstract sealed class Selector<F extends SelectFunction> permits Select1, Select2, Select3 {
+public abstract sealed class Selector<F extends SelectFunction> permits Select1, Select2, Select3, Select4 {
 
     public enum Type {
         MIN_COLUMN, MAX_COLUMN, SUM_COLUMN, AVG_COLUMN, COUNT_COLUMN, COUNT_ROWS, LIST_ROW

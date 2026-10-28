@@ -1,6 +1,6 @@
 package me.legrange.typelink;
 
-public sealed interface JoinLink extends Clause permits JoinClause, JoinLink2, JoinLink3 {
+public sealed interface JoinLink extends Clause permits JoinClause, JoinLink2, JoinLink3, JoinLink4 {
 
     Class<?> type();
 
