@@ -8,7 +8,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract sealed class Link permits AndClause, DistinctClause, FromClause, GroupClause, HavingClause, JoinClause, LimitClause, Link1, Link2, Link3, OrClause, OrderClause, SelectionLink, WhereClause {
+public abstract sealed class Link permits AndClause, DistinctClause, FromClause, GroupClause, HavingClause, JoinClause, LimitClause, Link1, Link2, Link3, Link4, OrClause, OrderClause, SelectionLink, WhereClause {
 
     private final Link left;
     private final Serializable function;

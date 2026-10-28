@@ -1,5 +1,7 @@
 package me.legrange.typelink;
 
+import me.legrange.typelink.JoinLink.Type;
+
 import java.io.Serializable;
 import java.util.List;
 
@@ -7,6 +9,22 @@ abstract sealed class Link3<T1, T2, T3> extends Link permits AndLink3, DistinctL
 
     protected Link3(Link left, Serializable serializable) {
         super(left, serializable);
+    }
+
+    public <T4> Join4<T1, T2, T3, T4> join(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join) {
+        return new JoinLink4<>(this, type, join);
+    }
+
+    public <T4> Join4<T1, T2, T3, T4> leftJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join) {
+        return new JoinLink4<>(this, type, Type.LEFT_OUTER, join);
+    }
+
+    public <T4> Join4<T1, T2, T3, T4> rightJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join) {
+        return new JoinLink4<>(this, type, Type.RIGHT_OUTER, join);
+    }
+
+    public <T4> Join4<T1, T2, T3, T4> fullJoin(Class<T4> type, QueryPredicate4<T1, T2, T3, T4> join) {
+        return new JoinLink4<>(this, type, Type.FULL_OUTER, join);
     }
 
     public Where3<T1, T2, T3> where(QueryPredicate3<T1, T2, T3> clause) {

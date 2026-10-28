@@ -90,6 +90,23 @@ public final class Selects {
         return new Select3<>(Type.AVG_COLUMN, Double.class, function);
     }
 
+    public static <T1, T2, T3, T4> SelectFunction4<T1, T2, T3, T4, Long> count(SelectFunction4<T1, T2, T3, T4, ?> function) {
+        return new  Select4<>(Type.COUNT_COLUMN, Long.class, function);
+    }
 
+    public static <T1, T2, T3, T4, N extends Number> SelectFunction4<T1, T2, T3, T4, N> sum(SelectFunction4<T1, T2, T3, T4, N> function) {
+        return new Select4<>(Type.SUM_COLUMN, function);
+    }
 
+    public static <T1, T2, T3, T4, N extends Number> SelectFunction4<T1, T2, T3, T4, N> min(SelectFunction4<T1, T2, T3, T4, N> function) {
+        return new Select4<>(Type.MIN_COLUMN, function);
+    }
+
+    public static <T1, T2, T3, T4, N extends Number> SelectFunction4<T1, T2, T3, T4, N> max(SelectFunction4<T1, T2, T3, T4, N> function) {
+        return new Select4<>(Type.MAX_COLUMN, function);
+    }
+
+    public static <T1, T2, T3, T4, N extends Number> SelectFunction4<T1, T2, T3, T4, Double> avg(SelectFunction4<T1, T2, T3, T4, N> function) {
+        return new Select4<>(Type.AVG_COLUMN, Double.class, function);
+    }
 }

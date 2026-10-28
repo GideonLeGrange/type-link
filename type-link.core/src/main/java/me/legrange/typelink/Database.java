@@ -28,6 +28,10 @@ public abstract class Database<O> {
         return new FromLink3<>(this, type1, type2, type3);
     }
 
+    public final <T1 extends O, T2 extends O, T3 extends O, T4 extends O> From4<T1, T2, T3, T4> from(Class<T1> type1, Class<T2> type2, Class<T3> type3, Class<T4> type4) {
+        return new FromLink4<>(this, type1, type2, type3, type4);
+    }
+
     final <T> List<T> list(SelectionLink link) {
         try {
             //noinspection unchecked

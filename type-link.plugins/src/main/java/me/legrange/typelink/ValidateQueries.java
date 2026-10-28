@@ -176,7 +176,7 @@ public class ValidateQueries extends AbstractMojo {
 
     /**
      * Whether {@code model}'s constant pool mentions any of the six interfaces
-     * ({@code SelectFunction1/2/3}, {@code QueryPredicate1/2/3}) a lambda must implement to be one
+     * ({@code SelectFunction1/2/3/4}, {@code QueryPredicate1/2/3/4}) a lambda must implement to be one
      * of this library's query lambdas. A class that names none of them cannot invoke one of the
      * fluent methods that takes one, and so cannot contain a lambda worth decoding - checked before
      * paying to walk every method's instructions for one that was never going to be there.
