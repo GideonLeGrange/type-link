@@ -27,7 +27,7 @@ compile. There is no mapping file to keep in step, and no string to get wrong at
 <dependency>
     <groupId>me.legrange.typelink</groupId>
     <artifactId>type-link.core</artifactId>
-    <version>1.0.0</version>
+    <version>1.5.0</version>
 </dependency>
 ```
 
@@ -116,7 +116,7 @@ The Maven plugin finds them at build time instead:
 <plugin>
     <groupId>me.legrange.typelink</groupId>
     <artifactId>type-link.plugins</artifactId>
-    <version>1.1.0</version>
+    <version>1.5.0</version>
     <executions>
         <execution><goals><goal>validate-queries</goal></goals></execution>
     </executions>
