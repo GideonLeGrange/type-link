@@ -23,7 +23,7 @@ import static java.lang.String.format;
  */
 public final class BeanMapper<B> implements TableMapper<B> {
 
-    private static final Map<Class<?>, BeanMap> typeIdx = new HashMap<>();
+    private static final Map<Class<?>, BeanMap> typeIdx = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final Class<B> superType;
 
@@ -158,7 +158,11 @@ public final class BeanMapper<B> implements TableMapper<B> {
         var typeMap = typeIdx.get(type);
         if (typeMap == null) {
             typeMap = makeBeanMap(type);
-            typeIdx.put(type, typeMap);
+            // two threads may both have made it: they use the one that was stored first
+            var raced = typeIdx.putIfAbsent(type, typeMap);
+            if (raced != null) {
+                typeMap = raced;
+            }
         }
         return typeMap;
     }

@@ -6,10 +6,12 @@ import me.legrange.typelink.lambda.structure.MethodReference;
 import me.legrange.typelink.lambda.structure.Value;
 
 import java.io.Serializable;
+import java.lang.invoke.SerializedLambda;
 
 import static me.legrange.typelink.lambda.parser.ClassUtil.findCodeModel;
 import static me.legrange.typelink.lambda.parser.ClassUtil.getCapturedArguments;
 import static me.legrange.typelink.lambda.parser.ClassUtil.methodReferenceTarget;
+import static me.legrange.typelink.lambda.parser.ClassUtil.toSerializedLambda;
 
 public final class LambdaParser {
 
@@ -22,15 +24,17 @@ public final class LambdaParser {
      * Whether the method is a column or code to expand is for whoever knows the mapping to say.
      */
     public static Lambda parse(Serializable function) {
-        var args = getCapturedArguments(function);
-        var target = methodReferenceTarget(function);
+        // read once: it is what the lambda says about itself, and nothing about it is kept afterwards
+        var serialized = toSerializedLambda(function);
+        var args = getCapturedArguments(serialized);
+        var target = methodReferenceTarget(serialized);
         if (target.isPresent()) {
-            return new Lambda(new MethodReference(target.get(), new Memoized(() -> body(function, args.size()))), args);
+            return new Lambda(new MethodReference(target.get(), new Memoized(() -> body(serialized, args.size()))), args);
         }
-        return new Lambda(body(function, args.size()), args);
+        return new Lambda(body(serialized, args.size()), args);
     }
 
-    private static Value body(Serializable function, int capturedCount) {
+    private static Value body(SerializedLambda function, int capturedCount) {
         var model = findCodeModel(function);
         try {
             return BytecodeParser.resolve(BytecodeParser.parseBytecode(model, capturedCount));

@@ -13,7 +13,7 @@ import static java.lang.String.format;
 
 final class RecordMapper<R extends Record> implements TableMapper<R> {
 
-    private static final Map<Class<? extends Record> , RecordMap> typeIdx = new HashMap<>();
+    private static final Map<Class<? extends Record> , RecordMap> typeIdx = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final Class<R> superType;
 
@@ -133,7 +133,11 @@ final class RecordMapper<R extends Record> implements TableMapper<R> {
         var typeMap = typeIdx.get(type);
         if (typeMap == null) {
             typeMap = makeTypeMap(type);
-            typeIdx.put(type, typeMap);
+            // two threads may both have made it: they use the one that was stored first
+            var raced = typeIdx.putIfAbsent(type, typeMap);
+            if (raced != null) {
+                typeMap = raced;
+            }
         }
         return typeMap;
     }

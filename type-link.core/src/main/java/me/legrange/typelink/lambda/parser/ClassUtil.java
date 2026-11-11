@@ -21,18 +21,22 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 
 import static java.lang.String.format;
 
  final class ClassUtil {
 
-    private static final Map<String, ClassModel> models = new HashMap<>();
-    private static final Map<Serializable, SerializedLambda> lambdas = new HashMap<>();
+    /**
+     * What has been read of each class so far. It is shared by every thread, so it must be a concurrent map. A lambda is
+     * deliberately not cached anywhere: a lambda that captures something is a new object every time a query is built, so a
+     * cache of lambdas only ever grows, and keeps everything the lambdas captured alive.
+     */
+    private static final Map<String, ClassModel> models = new ConcurrentHashMap<>();
 
     private ClassUtil() {
     }
@@ -84,7 +88,11 @@ import static java.lang.String.format;
     }
 
     static CodeModel findCodeModel(Serializable serializable) throws DecoderException {
-        return findCodeModel(getClassModel(serializable), serializable);
+        return findCodeModel(toSerializedLambda(serializable));
+    }
+
+    static CodeModel findCodeModel(SerializedLambda lambda) throws DecoderException {
+        return findCodeModel(getClassModel(lambda.getImplClass()), lambda.getImplMethodName());
     }
 
     static CodeModel findCodeModel(Method method) throws DecoderException {
@@ -98,7 +106,10 @@ import static java.lang.String.format;
      * or constructor, is not what a mapper could take for a column, so it is not reported.
      */
     static Optional<Method> methodReferenceTarget(Serializable function) {
-        var lambda = toSerializedLambda(function);
+        return methodReferenceTarget(toSerializedLambda(function));
+    }
+
+    static Optional<Method> methodReferenceTarget(SerializedLambda lambda) {
         var kind = lambda.getImplMethodKind();
         if (lambda.getCapturedArgCount() != 0
                 || (kind != MethodHandleInfo.REF_invokeVirtual && kind != MethodHandleInfo.REF_invokeInterface)) {
@@ -118,14 +129,13 @@ import static java.lang.String.format;
     }
 
     static List<Object> getCapturedArguments(Serializable function) throws DecoderException {
-        var lambda = toSerializedLambda(function);
+        return getCapturedArguments(toSerializedLambda(function));
+    }
+
+    static List<Object> getCapturedArguments(SerializedLambda lambda) {
         return IntStream.range(0, lambda.getCapturedArgCount())
                 .mapToObj(lambda::getCapturedArg)
                 .toList();
-    }
-
-    private static CodeModel findCodeModel(ClassModel classModel, Serializable serializable) throws DecoderException {
-        return findCodeModel(classModel, findLambdaName(serializable));
     }
 
     private static CodeModel findCodeModel(ClassModel classModel, Method method) throws DecoderException {
@@ -146,41 +156,35 @@ import static java.lang.String.format;
         return optC.get();
     }
 
-    private static ClassModel getClassModel(Serializable clause) throws DecoderException {
-        return getClassModel(toSerializedLambda(clause).getImplClass());
-    }
-
     private static ClassModel getClassModel(Method method) throws DecoderException {
         return getClassModel(method.getDeclaringClass().getName());
     }
 
     private static ClassModel getClassModel(String name) {
-        if (!models.containsKey(name)) {
-            var classResourcePath = name.replace('.', '/') + ".class";
-            try {
-                models.put(name, ClassFile.of().parse(getClassBytes(classResourcePath)));
-            } catch (IOException e) {
-                throw new ClassDecodingException(format("Error loading class %s (%s)", name, e.getMessage()), e);
-            }
+        var known = models.get(name);
+        if (known != null) {
+            return known;
         }
-        return models.get(name);
+        var classResourcePath = name.replace('.', '/') + ".class";
+        try {
+            var parsed = ClassFile.of().parse(getClassBytes(classResourcePath));
+            // two threads may both have read the class: they get the same model, whichever was stored first
+            var raced = models.putIfAbsent(name, parsed);
+            return raced != null ? raced : parsed;
+        } catch (IOException e) {
+            throw new ClassDecodingException(format("Error loading class %s (%s)", name, e.getMessage()), e);
+        }
     }
 
-    private static String findLambdaName(Serializable serializable) throws DecoderException {
-        return toSerializedLambda(serializable).getImplMethodName();
-    }
-
-    private static SerializedLambda toSerializedLambda(Serializable lambda) throws DecoderException {
-        if (!lambdas.containsKey(lambda)) {
-            try {
-                var method = lambda.getClass().getDeclaredMethod("writeReplace");
-                method.setAccessible(true);
-                lambdas.put(lambda, (SerializedLambda) method.invoke(lambda));
-            } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
-                throw new ClassDecodingException(format("Error serializing lambda (%s)", e.getMessage()), e);
-            }
+    /** Not kept: see {@link #models} */
+    static SerializedLambda toSerializedLambda(Serializable lambda) throws DecoderException {
+        try {
+            var method = lambda.getClass().getDeclaredMethod("writeReplace");
+            method.setAccessible(true);
+            return (SerializedLambda) method.invoke(lambda);
+        } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
+            throw new ClassDecodingException(format("Error serializing lambda (%s)", e.getMessage()), e);
         }
-        return lambdas.get(lambda);
     }
 
     /**
