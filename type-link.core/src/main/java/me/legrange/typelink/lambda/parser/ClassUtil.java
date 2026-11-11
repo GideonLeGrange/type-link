@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 
 import static java.lang.String.format;
@@ -32,11 +31,25 @@ import static java.lang.String.format;
  final class ClassUtil {
 
     /**
-     * What has been read of each class so far. It is shared by every thread, so it must be a concurrent map. A lambda is
-     * deliberately not cached anywhere: a lambda that captures something is a new object every time a query is built, so a
-     * cache of lambdas only ever grows, and keeps everything the lambdas captured alive.
+     * What has been read of each class. It is kept per {@link Class}, not per class name: when an application reloads its
+     * classes (Quarkus in dev mode does, after an edit) the new class has the same name as the old one but is a different
+     * Class, so it is read again and a lambda is never decoded from what the class used to say. What is kept for a class goes
+     * when the class is unloaded. A ClassValue is also safe to use from many threads.
+     *
+     * <p>A lambda is deliberately not cached anywhere: a lambda that captures something is a new object every time a query
+     * is built, so a cache of lambdas only ever grows, and keeps everything the lambdas captured alive.
      */
-    private static final Map<String, ClassModel> models = new ConcurrentHashMap<>();
+    private static final ClassValue<ClassModel> models = new ClassValue<>() {
+        @Override
+        protected ClassModel computeValue(Class<?> type) {
+            var classResourcePath = type.getName().replace('.', '/') + ".class";
+            try {
+                return ClassFile.of().parse(getClassBytes(type, classResourcePath));
+            } catch (IOException e) {
+                throw new ClassDecodingException(format("Error loading class %s (%s)", type.getName(), e.getMessage()), e);
+            }
+        }
+    };
 
     private ClassUtil() {
     }
@@ -92,11 +105,11 @@ import static java.lang.String.format;
     }
 
     static CodeModel findCodeModel(SerializedLambda lambda) throws DecoderException {
-        return findCodeModel(getClassModel(lambda.getImplClass()), lambda.getImplMethodName());
+        return findCodeModel(models.get(classNamed(lambda.getImplClass())), lambda.getImplMethodName());
     }
 
     static CodeModel findCodeModel(Method method) throws DecoderException {
-        return findCodeModel(getClassModel(method), method);
+        return findCodeModel(models.get(method.getDeclaringClass()), method);
     }
 
     /**
@@ -156,22 +169,13 @@ import static java.lang.String.format;
         return optC.get();
     }
 
-    private static ClassModel getClassModel(Method method) throws DecoderException {
-        return getClassModel(method.getDeclaringClass().getName());
-    }
-
-    private static ClassModel getClassModel(String name) {
-        var known = models.get(name);
-        if (known != null) {
-            return known;
-        }
-        var classResourcePath = name.replace('.', '/') + ".class";
+    /** The class that a lambda says it was written in (it names it with slashes), as the application's loader sees it */
+    private static Class<?> classNamed(String internalName) {
+        var name = internalName.replace('/', '.');
+        var loader = Thread.currentThread().getContextClassLoader();
         try {
-            var parsed = ClassFile.of().parse(getClassBytes(classResourcePath));
-            // two threads may both have read the class: they get the same model, whichever was stored first
-            var raced = models.putIfAbsent(name, parsed);
-            return raced != null ? raced : parsed;
-        } catch (IOException e) {
+            return loader != null ? loader.loadClass(name) : Class.forName(name);
+        } catch (ClassNotFoundException e) {
             throw new ClassDecodingException(format("Error loading class %s (%s)", name, e.getMessage()), e);
         }
     }
@@ -193,8 +197,8 @@ import static java.lang.String.format;
      * @return The byte value
      * @throws IOException thrown if the class data cannot be loaded
      */
-    private static byte[] getClassBytes(String classResourcePath) throws IOException {
-        try (var inputStream = openClassResource(classResourcePath);
+    private static byte[] getClassBytes(Class<?> type, String classResourcePath) throws IOException {
+        try (var inputStream = openClassResource(type, classResourcePath);
              var byteStream = new ByteArrayOutputStream()) {
             if (inputStream == null) {
                 throw new IOException(format("Class file for %s not found as a resource", classResourcePath));
@@ -209,13 +213,20 @@ import static java.lang.String.format;
     }
 
     /**
-     * Open the given class resource path using the thread's context class loader first, since that
-     * is the loader that is actually able to see application classes in environments (such as Quarkus)
-     * that load dependencies like this one on a parent class loader and application code on a child
-     * class loader. {@link ClassUtil}'s own defining loader is tried only as a fallback, since a parent
-     * loader can never see resources that only exist on a child loader.
+     * Open the class file of the given class: from the loader of the class itself first, since that is the loader that read
+     * this very version of it (which matters when the application reloads its classes), then from the thread's context class
+     * loader, which in environments such as Quarkus can see application classes that this library's own loader cannot (it is
+     * on a parent loader, application code on a child), and last from this library's own loader.
      */
-    private static InputStream openClassResource(String classResourcePath) {
+    private static InputStream openClassResource(Class<?> type, String classResourcePath) {
+        // the class's own loader first: it is the one that read this very class, so it cannot give another version of it
+        var own = type.getClassLoader();
+        if (own != null) {
+            var stream = own.getResourceAsStream(classResourcePath);
+            if (stream != null) {
+                return stream;
+            }
+        }
         var contextLoader = Thread.currentThread().getContextClassLoader();
         if (contextLoader != null) {
             var stream = contextLoader.getResourceAsStream(classResourcePath);
